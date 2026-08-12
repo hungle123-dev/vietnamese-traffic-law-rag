@@ -1,0 +1,53 @@
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Annotated
+
+import typer
+
+from traffic_legal_qa.config import settings
+from traffic_legal_qa.ingestion.models import LegalDocumentMetadata
+from traffic_legal_qa.ingestion.pipeline import IngestionPipeline
+
+app = typer.Typer(no_args_is_help=True)
+
+
+@app.callback()
+def _main() -> None:
+    """Vietnamese traffic-law ingestion CLI."""
+
+
+@app.command()
+def ingest(
+    source: Annotated[
+        Path,
+        typer.Option(exists=True, dir_okay=False, readable=True),
+    ],
+    document_id: Annotated[str, typer.Option()],
+    title: Annotated[str, typer.Option()],
+    source_url: Annotated[str, typer.Option()],
+    snapshot_id: Annotated[str, typer.Option()],
+    document_type: Annotated[str, typer.Option()] = "law",
+    issuer: Annotated[str, typer.Option()] = "Unknown issuer",
+) -> None:
+    """Ingest one UTF-8 traffic-law text document."""
+    metadata = LegalDocumentMetadata(
+        document_id=document_id,
+        title=title,
+        document_type=document_type,
+        issuer=issuer,
+        source_url=source_url,
+        retrieved_at=datetime.now(UTC),
+        snapshot_id=snapshot_id,
+    )
+    result = IngestionPipeline(settings.data_dir).ingest_file(source, metadata)
+    typer.echo(f"Ingested {result.document_id}: {result.unit_count} units")
+    typer.echo(f"Raw: {result.raw_path}")
+    typer.echo(f"Parsed: {result.parsed_path}")
+
+
+def main() -> None:
+    app()
+
+
+if __name__ == "__main__":
+    main()
