@@ -28,8 +28,32 @@ class IngestionPipeline:
         metadata: LegalDocumentMetadata,
     ) -> IngestionResult:
         raw_content = source_path.read_bytes()
-        raw_path, content_hash = self.raw_store.store_bytes(raw_content)
-        content = raw_content.decode("utf-8")
+        raw_path, content_hash = self.raw_store.store_bytes(
+            raw_content,
+            source_path.suffix or ".txt",
+        )
+        return self._ingest_stored_content(
+            raw_path, content_hash, raw_content.decode("utf-8"), metadata
+        )
+
+    def ingest_content(
+        self,
+        raw_content: bytes,
+        content: str,
+        metadata: LegalDocumentMetadata,
+        *,
+        raw_suffix: str,
+    ) -> IngestionResult:
+        raw_path, content_hash = self.raw_store.store_bytes(raw_content, raw_suffix)
+        return self._ingest_stored_content(raw_path, content_hash, content, metadata)
+
+    def _ingest_stored_content(
+        self,
+        raw_path: str,
+        content_hash: str,
+        content: str,
+        metadata: LegalDocumentMetadata,
+    ) -> IngestionResult:
         finalized_metadata = metadata.model_copy(update={"content_sha256": content_hash})
         units = LegalHierarchyParser(finalized_metadata.document_id).parse(content)
         document = ParsedDocument(metadata=finalized_metadata, units=units)

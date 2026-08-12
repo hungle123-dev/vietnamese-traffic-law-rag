@@ -14,7 +14,7 @@ local source document
 → parser/pipeline tests
 ```
 
-Chưa có retrieval, LLM generation, UI hoặc Agentic RAG.
+Chưa có retrieval, LLM generation, UI hoặc Agentic RAG. Phase 1B có thể tải và ingest PDF text từ nguồn chính thức.
 
 ## Setup
 
@@ -41,6 +41,24 @@ uv run traffic-legal ingest `
   --issuer "Quốc hội" `
   --source-url https://vbpl.moj.gov.vn/ `
   --snapshot-id traffic-dev-v1
+```
+
+## Ingest an official PDF
+
+`source_url` là trang công bố để hiển thị citation; `content_url` là PDF được tải, hash và lưu immutable.
+
+```powershell
+uv run traffic-legal fetch-pdf `
+  --document-id "36/2024/QH15" `
+  --title "Luật Trật tự, an toàn giao thông đường bộ" `
+  --document-type law `
+  --issuer "Quốc hội" `
+  --issued-date 2024-06-27 `
+  --effective-from 2025-01-01 `
+  --status current `
+  --source-url "https://vanban.chinhphu.vn/?classid=1&docid=211194&pageid=27160" `
+  --content-url "https://datafiles.chinhphu.vn/cpp/files/vbpq/2024/9/36-2024-qh15.pdf" `
+  --snapshot-id "traffic-2026-08-12-v1"
 ```
 
 The command writes ignored local artifacts under `data/`:

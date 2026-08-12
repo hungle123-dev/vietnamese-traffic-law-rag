@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -7,8 +7,18 @@ import typer
 from traffic_legal_qa.config import settings
 from traffic_legal_qa.ingestion.models import LegalDocumentMetadata
 from traffic_legal_qa.ingestion.pipeline import IngestionPipeline
+from traffic_legal_qa.ingestion.sources import fetch_pdf as download_pdf
 
 app = typer.Typer(no_args_is_help=True)
+
+
+def _parse_iso_date(value: str | None) -> date | None:
+    if value is None:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError as error:
+        raise typer.BadParameter("must use YYYY-MM-DD") from error
 
 
 @app.callback()
@@ -28,6 +38,9 @@ def ingest(
     snapshot_id: Annotated[str, typer.Option()],
     document_type: Annotated[str, typer.Option()] = "law",
     issuer: Annotated[str, typer.Option()] = "Unknown issuer",
+    issued_date: Annotated[str | None, typer.Option()] = None,
+    effective_from: Annotated[str | None, typer.Option()] = None,
+    status: Annotated[str, typer.Option()] = "unknown",
 ) -> None:
     """Ingest one UTF-8 traffic-law text document."""
     metadata = LegalDocumentMetadata(
@@ -35,12 +48,56 @@ def ingest(
         title=title,
         document_type=document_type,
         issuer=issuer,
+        issued_date=_parse_iso_date(issued_date),
+        effective_from=_parse_iso_date(effective_from),
+        status=status,
         source_url=source_url,
         retrieved_at=datetime.now(UTC),
         snapshot_id=snapshot_id,
     )
     result = IngestionPipeline(settings.data_dir).ingest_file(source, metadata)
     typer.echo(f"Ingested {result.document_id}: {result.unit_count} units")
+    typer.echo(f"Raw: {result.raw_path}")
+    typer.echo(f"Parsed: {result.parsed_path}")
+
+
+@app.command("fetch-pdf")
+def fetch_pdf(
+    content_url: Annotated[str, typer.Option()],
+    document_id: Annotated[str, typer.Option()],
+    title: Annotated[str, typer.Option()],
+    source_url: Annotated[str, typer.Option()],
+    snapshot_id: Annotated[str, typer.Option()],
+    document_type: Annotated[str, typer.Option()] = "law",
+    issuer: Annotated[str, typer.Option()] = "Unknown issuer",
+    issued_date: Annotated[str | None, typer.Option()] = None,
+    effective_from: Annotated[str | None, typer.Option()] = None,
+    status: Annotated[str, typer.Option()] = "unknown",
+) -> None:
+    """Fetch one official PDF, extract its text, and ingest it."""
+    source = download_pdf(content_url)
+    metadata = LegalDocumentMetadata(
+        document_id=document_id,
+        title=title,
+        document_type=document_type,
+        issuer=issuer,
+        issued_date=_parse_iso_date(issued_date),
+        effective_from=_parse_iso_date(effective_from),
+        status=status,
+        source_url=source_url,
+        content_url=content_url,
+        retrieved_at=datetime.now(UTC),
+        snapshot_id=snapshot_id,
+    )
+    result = IngestionPipeline(settings.data_dir).ingest_content(
+        source.raw_content,
+        source.text,
+        metadata,
+        raw_suffix=".pdf",
+    )
+    typer.echo(
+        f"Ingested {result.document_id}: {result.unit_count} units from {source.page_count} pages"
+    )
     typer.echo(f"Raw: {result.raw_path}")
     typer.echo(f"Parsed: {result.parsed_path}")
 

@@ -14,9 +14,11 @@ class RawDocumentStore:
     def store_text(self, content: str) -> tuple[str, str]:
         return self.store_bytes(content.encode("utf-8"))
 
-    def store_bytes(self, content: bytes) -> tuple[str, str]:
+    def store_bytes(self, content: bytes, suffix: str = ".txt") -> tuple[str, str]:
+        if not re.fullmatch(r"\.[A-Za-z0-9]{1,10}", suffix):
+            raise ValueError(f"Invalid raw file suffix: {suffix!r}")
         content_hash = hashlib.sha256(content).hexdigest()
-        destination = self.root / f"{content_hash}.txt"
+        destination = self.root / f"{content_hash}{suffix.lower()}"
         if destination.exists():
             if destination.read_bytes() != content:
                 raise ValueError(f"Raw content hash collision: {destination}")

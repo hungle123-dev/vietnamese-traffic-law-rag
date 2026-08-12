@@ -12,6 +12,7 @@ dependencies = [
     "fastapi>=0.115,<1",
     "pydantic>=2.10,<3",
     "pydantic-settings>=2.7,<3",
+    "pypdf>=6.0,<7",
     "typer>=0.15,<1",
     "uvicorn[standard]>=0.34,<1",
 ]

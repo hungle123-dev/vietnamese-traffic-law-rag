@@ -39,6 +39,31 @@ def test_ingestion_pipeline_stores_raw_parsed_and_manifest(
     assert manifest_payload["documents"][0]["content_sha256"] == expected_hash
 
 
+def test_ingest_content_keeps_pdf_bytes_as_a_pdf_artifact(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    raw_content = b"%PDF-1.7\nraw document bytes"
+    metadata = LegalDocumentMetadata(
+        document_id="36/2024/QH15",
+        title="Luật Trật tự, an toàn giao thông đường bộ",
+        document_type="law",
+        issuer="Quốc hội",
+        source_url="https://example.gov.vn/document",
+        content_url="https://example.gov.vn/document.pdf",
+        retrieved_at=datetime(2026, 8, 12, tzinfo=UTC),
+        snapshot_id="test-v1",
+    )
+
+    result = IngestionPipeline(data_dir).ingest_content(
+        raw_content,
+        "Điều 1. Phạm vi điều chỉnh\nNội dung.",
+        metadata,
+        raw_suffix=".pdf",
+    )
+
+    assert Path(result.raw_path).suffix == ".pdf"
+    assert Path(result.raw_path).read_bytes() == raw_content
+
+
 def test_ingestion_keeps_raw_bytes_when_utf8_decoding_fails(tmp_path: Path) -> None:
     source = tmp_path / "invalid.txt"
     raw_bytes = b"\xff\xfe"

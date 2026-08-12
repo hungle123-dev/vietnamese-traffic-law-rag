@@ -20,6 +20,7 @@ class LegalDocumentMetadata(BaseModel):
     status: DocumentStatus = "unknown"
     domain: Literal["traffic"] = "traffic"
     source_url: str = Field(min_length=1)
+    content_url: str | None = None
     retrieved_at: datetime
     content_sha256: str = ""
     snapshot_id: str = Field(min_length=1)

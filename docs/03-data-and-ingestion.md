@@ -86,6 +86,8 @@ Lỗi ở bất kỳ state nào chuyển record/job sang `failed` với error co
 - Không vượt rate limit của nguồn.
 - Gắn checksum sau khi tải.
 
+Phase 1B supports a direct official text-PDF URL. `source_url` remains the public document page used for citations; `content_url` records the downloaded PDF. Discovery stays manual in a versioned corpus catalog until the national legal portal exposes a stable documented interface.
+
 ### 6.2 Normalization
 
 - Chuẩn hóa Unicode và whitespace.
