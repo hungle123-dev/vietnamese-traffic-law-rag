@@ -3,6 +3,7 @@ from pathlib import Path
 
 from traffic_legal_qa.ingestion.models import LegalDocumentMetadata, ParsedDocument
 from traffic_legal_qa.ingestion.parser import LegalHierarchyParser
+from traffic_legal_qa.ingestion.sources import extract_pdf_text
 from traffic_legal_qa.ingestion.storage import ManifestStore, ParsedDocumentStore, RawDocumentStore
 
 
@@ -46,6 +47,11 @@ class IngestionPipeline:
     ) -> IngestionResult:
         raw_path, content_hash = self.raw_store.store_bytes(raw_content, raw_suffix)
         return self._ingest_stored_content(raw_path, content_hash, content, metadata)
+
+    def ingest_pdf(self, raw_content: bytes, metadata: LegalDocumentMetadata) -> IngestionResult:
+        raw_path, content_hash = self.raw_store.store_bytes(raw_content, ".pdf")
+        extracted = extract_pdf_text(raw_content)
+        return self._ingest_stored_content(raw_path, content_hash, extracted.text, metadata)
 
     def _ingest_stored_content(
         self,

@@ -7,7 +7,7 @@ import typer
 from traffic_legal_qa.config import settings
 from traffic_legal_qa.ingestion.models import LegalDocumentMetadata
 from traffic_legal_qa.ingestion.pipeline import IngestionPipeline
-from traffic_legal_qa.ingestion.sources import fetch_pdf as download_pdf
+from traffic_legal_qa.ingestion.sources import download_pdf
 
 app = typer.Typer(no_args_is_help=True)
 
@@ -75,7 +75,7 @@ def fetch_pdf(
     status: Annotated[str, typer.Option()] = "unknown",
 ) -> None:
     """Fetch one official PDF, extract its text, and ingest it."""
-    source = download_pdf(content_url)
+    raw_content = download_pdf(content_url)
     metadata = LegalDocumentMetadata(
         document_id=document_id,
         title=title,
@@ -89,15 +89,8 @@ def fetch_pdf(
         retrieved_at=datetime.now(UTC),
         snapshot_id=snapshot_id,
     )
-    result = IngestionPipeline(settings.data_dir).ingest_content(
-        source.raw_content,
-        source.text,
-        metadata,
-        raw_suffix=".pdf",
-    )
-    typer.echo(
-        f"Ingested {result.document_id}: {result.unit_count} units from {source.page_count} pages"
-    )
+    result = IngestionPipeline(settings.data_dir).ingest_pdf(raw_content, metadata)
+    typer.echo(f"Ingested {result.document_id}: {result.unit_count} units")
     typer.echo(f"Raw: {result.raw_path}")
     typer.echo(f"Parsed: {result.parsed_path}")
 

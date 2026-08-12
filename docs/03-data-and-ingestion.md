@@ -88,6 +88,8 @@ Lỗi ở bất kỳ state nào chuyển record/job sang `failed` với error co
 
 Phase 1B supports a direct official text-PDF URL. `source_url` remains the public document page used for citations; `content_url` records the downloaded PDF. Discovery stays manual in a versioned corpus catalog until the national legal portal exposes a stable documented interface.
 
+If PDF text extraction fails, the raw PDF is still hashed and retained, but no parsed document or manifest record is created. The run fails explicitly so image-only sources cannot silently enter retrieval; they require OCR or a verified structured-text source.
+
 ### 6.2 Normalization
 
 - Chuẩn hóa Unicode và whitespace.

@@ -1,9 +1,11 @@
 import hashlib
 import json
 from datetime import UTC, datetime
+from io import BytesIO
 from pathlib import Path
 
 import pytest
+from pypdf import PdfWriter
 
 from traffic_legal_qa.ingestion.models import LegalDocumentMetadata
 from traffic_legal_qa.ingestion.pipeline import IngestionPipeline
@@ -83,4 +85,29 @@ def test_ingestion_keeps_raw_bytes_when_utf8_decoding_fails(tmp_path: Path) -> N
         pipeline.ingest_file(source, metadata)
 
     expected_raw = tmp_path / "data" / "raw" / f"{hashlib.sha256(raw_bytes).hexdigest()}.txt"
+    assert expected_raw.read_bytes() == raw_bytes
+
+
+def test_ingestion_keeps_image_only_pdf_when_text_extraction_fails(tmp_path: Path) -> None:
+    buffer = BytesIO()
+    writer = PdfWriter()
+    writer.add_blank_page(width=100, height=100)
+    writer.write(buffer)
+    raw_bytes = buffer.getvalue()
+    metadata = LegalDocumentMetadata(
+        document_id="image-only",
+        title="PDF không có text",
+        document_type="decree",
+        issuer="Cơ quan mẫu",
+        source_url="https://example.com/image-only",
+        content_url="https://example.com/image-only.pdf",
+        retrieved_at=datetime(2026, 1, 1, tzinfo=UTC),
+        snapshot_id="snapshot-image-only",
+    )
+    pipeline = IngestionPipeline(tmp_path / "data")
+
+    with pytest.raises(ValueError, match="no extractable text"):
+        pipeline.ingest_pdf(raw_bytes, metadata)
+
+    expected_raw = tmp_path / "data" / "raw" / f"{hashlib.sha256(raw_bytes).hexdigest()}.pdf"
     assert expected_raw.read_bytes() == raw_bytes

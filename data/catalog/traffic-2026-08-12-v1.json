@@ -1,0 +1,148 @@
+{
+  "snapshot_id": "traffic-2026-08-12-v1",
+  "documents": [
+    {
+      "document_id": "35/2024/QH15",
+      "title": "Luật Đường bộ",
+      "document_type": "law",
+      "issuer": "Quốc hội",
+      "issued_date": "2024-06-27",
+      "effective_from": "2025-01-01",
+      "status": "current",
+      "source_url": "https://vanban.chinhphu.vn/?classid=1&docid=211193&pageid=27160&typegroupid=3",
+      "content_url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2024/9/35-2024-qh15.pdf"
+    },
+    {
+      "document_id": "36/2024/QH15",
+      "title": "Luật Trật tự, an toàn giao thông đường bộ",
+      "document_type": "law",
+      "issuer": "Quốc hội",
+      "issued_date": "2024-06-27",
+      "effective_from": "2025-01-01",
+      "status": "current",
+      "source_url": "https://vanban.chinhphu.vn/?classid=1&docid=211194&pageid=27160",
+      "content_url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2024/9/36-2024-qh15.pdf"
+    },
+    {
+      "document_id": "151/2024/NĐ-CP",
+      "title": "Quy định chi tiết một số điều và biện pháp thi hành Luật Trật tự, an toàn giao thông đường bộ",
+      "document_type": "decree",
+      "issuer": "Chính phủ",
+      "issued_date": "2024-11-15",
+      "effective_from": "2025-01-01",
+      "status": "amended",
+      "source_url": "https://vanban.chinhphu.vn/?classid=1&docid=211956&pageid=27160&typegroupid=4",
+      "content_url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2024/12/151-cp.signed.pdf"
+    },
+    {
+      "document_id": "158/2024/NĐ-CP",
+      "title": "Quy định về hoạt động vận tải đường bộ",
+      "document_type": "decree",
+      "issuer": "Chính phủ",
+      "issued_date": "2024-12-18",
+      "effective_from": "2025-01-01",
+      "status": "amended",
+      "source_url": "https://vanban.chinhphu.vn/?classid=1&docid=212082&pageid=27160&typegroupid=4",
+      "content_url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2024/12/158_2024_nd-cp_18122024-signed.pdf"
+    },
+    {
+      "document_id": "160/2024/NĐ-CP",
+      "title": "Quy định về hoạt động đào tạo và sát hạch lái xe",
+      "document_type": "decree",
+      "issuer": "Chính phủ",
+      "issued_date": "2024-12-18",
+      "effective_from": "2025-01-01",
+      "status": "current",
+      "source_url": "https://vanban.chinhphu.vn/?classid=1&docid=212126&pageid=27160",
+      "content_url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2024/12/160_2024_nd-cp_18122024-signed.pdf"
+    },
+    {
+      "document_id": "165/2024/NĐ-CP",
+      "title": "Quy định chi tiết, hướng dẫn thi hành một số điều của Luật Đường bộ và Điều 77 Luật Trật tự, an toàn giao thông đường bộ",
+      "document_type": "decree",
+      "issuer": "Chính phủ",
+      "issued_date": "2024-12-26",
+      "effective_from": "2025-01-01",
+      "status": "amended",
+      "source_url": "https://vanban.chinhphu.vn/?docid=212168&pageid=27160",
+      "content_url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/01/165_2024_nd-cp_26122024-signed.pdf"
+    },
+    {
+      "document_id": "168/2024/NĐ-CP",
+      "title": "Quy định xử phạt vi phạm hành chính về trật tự, an toàn giao thông trong lĩnh vực giao thông đường bộ; trừ điểm, phục hồi điểm giấy phép lái xe",
+      "document_type": "decree",
+      "issuer": "Chính phủ",
+      "issued_date": "2024-12-26",
+      "effective_from": "2025-01-01",
+      "status": "current",
+      "source_url": "https://vanban.chinhphu.vn/?classid=1&docid=212167&pageid=27160",
+      "content_url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/01/168-nd-cp.signed.pdf"
+    },
+    {
+      "document_id": "73/2024/TT-BCA",
+      "title": "Quy định công tác tuần tra, kiểm soát, xử lý vi phạm pháp luật về trật tự, an toàn giao thông đường bộ của Cảnh sát giao thông",
+      "document_type": "circular",
+      "issuer": "Bộ Công an",
+      "issued_date": "2024-11-15",
+      "effective_from": "2025-01-01",
+      "status": "current",
+      "source_url": "https://vanban.chinhphu.vn/?classid=1&docid=211864&orggroupid=4&pageid=27160",
+      "content_url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2024/11/73-bca.pdf"
+    },
+    {
+      "document_id": "79/2024/TT-BCA",
+      "title": "Quy định về cấp, thu hồi chứng nhận đăng ký xe, biển số xe cơ giới, xe máy chuyên dùng",
+      "document_type": "circular",
+      "issuer": "Bộ Công an",
+      "issued_date": "2024-11-15",
+      "effective_from": "2025-01-01",
+      "status": "amended",
+      "source_url": "https://vanban.chinhphu.vn/?docid=211945&pageid=27160",
+      "content_url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2024/12/79-bca.signed.pdf"
+    },
+    {
+      "document_id": "51/2025/TT-BCA",
+      "title": "Sửa đổi, bổ sung một số điều của Thông tư số 79/2024/TT-BCA về cấp, thu hồi chứng nhận đăng ký xe, biển số xe cơ giới, xe máy chuyên dùng",
+      "document_type": "circular",
+      "issuer": "Bộ Công an",
+      "issued_date": "2025-06-30",
+      "effective_from": "2025-07-01",
+      "status": "current",
+      "source_url": "https://vanban.chinhphu.vn/?classid=1&docid=214486&orggroupid=4&pageid=27160",
+      "content_url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/7/51-bca.signed.pdf"
+    },
+    {
+      "document_id": "218/2026/NĐ-CP",
+      "title": "Sửa đổi, bổ sung một số điều của Nghị định số 158/2024/NĐ-CP quy định về hoạt động vận tải đường bộ",
+      "document_type": "decree",
+      "issuer": "Chính phủ",
+      "issued_date": "2026-06-19",
+      "effective_from": "2026-08-10",
+      "status": "current",
+      "source_url": "https://vanban.chinhphu.vn/?classid=1&docid=218537&pageid=27160",
+      "content_url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/6/218-ndcp.signed.pdf"
+    },
+    {
+      "document_id": "236/2026/NĐ-CP",
+      "title": "Sửa đổi, bổ sung một số điều của Nghị định số 151/2024/NĐ-CP quy định chi tiết một số điều và biện pháp thi hành Luật Trật tự, an toàn giao thông đường bộ",
+      "document_type": "decree",
+      "issuer": "Chính phủ",
+      "issued_date": "2026-06-26",
+      "effective_from": "2026-07-01",
+      "status": "current",
+      "source_url": "https://vanban.chinhphu.vn/?classid=1&docid=218618&pageid=27160",
+      "content_url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/6/236-ndcp.signed.pdf"
+    },
+    {
+      "document_id": "241/2026/NĐ-CP",
+      "title": "Sửa đổi, bổ sung một số điều của Nghị định số 165/2024/NĐ-CP quy định chi tiết, hướng dẫn thi hành một số điều của Luật Đường bộ và Điều 77 Luật Trật tự, an toàn giao thông đường bộ",
+      "document_type": "decree",
+      "issuer": "Chính phủ",
+      "issued_date": "2026-06-26",
+      "effective_from": "2026-07-01",
+      "status": "current",
+      "source_url": "https://vanban.chinhphu.vn/?docid=218631&pageid=27160",
+      "content_url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/7/241-ndcp.signed.pdf"
+    }
+  ]
+}

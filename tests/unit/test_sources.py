@@ -1,6 +1,6 @@
 import pytest
 
-from traffic_legal_qa.ingestion.sources import fetch_pdf, normalize_pdf_text
+from traffic_legal_qa.ingestion.sources import download_pdf, normalize_pdf_text
 
 
 def test_normalize_pdf_text_removes_gazette_headers_without_losing_hierarchy() -> None:
@@ -17,6 +17,6 @@ CÔNG BÁO/Số 977 + 978/Ngày 24-8-2024 77
     )
 
 
-def test_fetch_pdf_rejects_non_http_urls() -> None:
+def test_download_pdf_rejects_non_http_urls() -> None:
     with pytest.raises(ValueError, match="http or https"):
-        fetch_pdf("file:///tmp/traffic-law.pdf")
+        download_pdf("file:///tmp/traffic-law.pdf")
