@@ -73,6 +73,27 @@ R0 normalizes Unicode/whitespace and rejects blank, overlong queries. When the q
 
 Dense retrieval handles paraphrases between everyday Vietnamese questions and formal legal language. The chosen embedding model must be benchmarked on the project gold set, not selected from leaderboard reputation alone.
 
+#### Current R1 contract
+
+R1 is a dense-only baseline: no exact lookup, lexical candidates, fusion, reranker, graph expansion, validity decision, cache, or answer generation. It uses the pinned revision `84f9d9ada0d1a3c37557398b9ae9fcedcdf40be0` of `bkai-foundation-models/vietnamese-bi-encoder`, a 768-dimensional PhoBERT-based Vietnamese bi-encoder whose model card requires word segmentation. `BKAIEncoder` therefore applies `pyvi.ViTokenizer` to both corpus units and queries, limits the model to 256 tokens, and asks SentenceTransformers for L2-normalized embeddings.
+
+The offline builder derives deterministic text from document title, hierarchy locator, optional unit title, and canonical unit text. It embeds only Article, Clause, and Point (6,343 units in this snapshot): these are the answer/citation granularity; Part/Chapter/Section remain structural graph nodes. The importer gives those three physical Neo4j labels a shared `LegalUnit` label. `legal_units_bkai_v1` is a cosine vector index over `LegalUnit.embedding_bkai_v1`, with quantization disabled for the small corpus and a fixed dimension/model contract.
+
+Neo4j 5.26 cannot apply a snapshot metadata filter inside this vector index. Consequently `build-dense-index` and `verify_index` reject embeddings belonging to a second snapshot and reconcile all three counts—validated units, graph `LegalUnit`s, and embedded `LegalUnit`s—before search/evaluation. This is an explicit v1 single-embedded-snapshot limit, not a post-filter that could silently under-fill top-k. A multi-snapshot deployment must use a filtered vector capability or a separate database/index per active snapshot.
+
+`build-dense-index` is offline and accepts a bounded `--batch-size` hardware calibration parameter. An interrupted build resumes only missing vectors: the frozen snapshot, graph count, single-snapshot guard, model-versioned property, and final full-coverage check remain mandatory. `search-dense` and `evaluate-r1` only verify and read an existing `ONLINE` index. `evaluate-r1` records index/model/revision/segmentation/device configuration and the same source-ID metrics as R0; it is run on dev before any R2 fusion choice, never as evidence from the held-out test split.
+
+#### First dev measurement
+
+On the frozen `traffic-2026-08-13-v1` snapshot and the same 15-question dev split, R1 confirms that the BKAI+PyVi path is operational but does **not** replace R0. These generated reports are retrieval evidence, not a legal-quality or release claim.
+
+| Baseline | Unit Recall@1 | Unit Recall@3 | Unit Recall@5 | Unit Recall@10 | MRR@10 | Full / partial / miss @10 |
+|---|---:|---:|---:|---:|---:|---:|
+| R0 exact + lexical | 0.500 | 0.767 | 0.767 | 0.900 | 0.676 | 13 / 1 / 1 |
+| R1 BKAI + PyVi dense-only | 0.600 | 0.667 | 0.733 | 0.733 | 0.650 | 11 / 0 / 4 |
+
+R1 leads only at rank 1; R0 retains more source units by rank 3–10 and a higher MRR. This supports the pre-registered next step—R2 RRF fusion—rather than replacing lexical retrieval or tuning R1 against the held-out test split.
+
 ### Fusion
 
 The initial hybrid default is Reciprocal Rank Fusion:
@@ -121,7 +142,7 @@ A low signal results in clarification or abstention, not an invented answer.
 
 All rows use the same snapshot and held-out questions. A comparison that changes multiple variables is not evidence for a component.
 
-For the current pilot, `evaluate-r0` writes a source-ID-only report for exactly one frozen split. It records macro unit/document Recall@1/3/5/10, MRR@10, full/partial/miss at 10, per-question ranked IDs, snapshot, full-text index contract, gold-file SHA-256, git commit, and timestamp. R0 parameters may be selected only on `dev`; run `test` once those parameters are frozen.
+For the current pilot, `evaluate-r0` and `evaluate-r1` write source-ID-only reports for exactly one frozen split. They record macro unit/document Recall@1/3/5/10, MRR@10, full/partial/miss at 10, per-question ranked IDs, snapshot, index contract, gold-file SHA-256, git commit, and timestamp. R1 also records its BKAI model revision, PyVi segmentation, normalization, dimension, maximum sequence length, and device. Parameters may be selected only on `dev`; run `test` once R0–R2 are frozen.
 
 ## Deferred complexity
 

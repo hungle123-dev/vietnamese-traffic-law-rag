@@ -118,4 +118,4 @@ If a target is missed, report the root-cause analysis and limitation rather than
     git_commit
     timestamp
 
-The R0 report currently persists the equivalent concrete fields: run ID, snapshot ID, frozen split, gold-file SHA-256, git commit, creation time, fixed lexical-index name/format/state/counts, retrieval configuration, aggregate metrics, and ranked source IDs per question. It deliberately stores no generated answer or LLM-judge score.
+The R0/R1 reports persist the equivalent concrete fields: run ID, snapshot ID, frozen split, gold-file SHA-256, git commit, creation time, fixed index name/format/state/counts, retrieval configuration, aggregate metrics, and ranked source IDs per question. R1 additionally records BKAI model/revision, PyVi segmentation, vector dimension, sequence limit, normalization, and device. They deliberately store no generated answer or LLM-judge score.

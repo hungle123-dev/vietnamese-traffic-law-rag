@@ -1,4 +1,4 @@
-"""Reproducible R0 lexical evaluation orchestration."""
+"""Reproducible first-stage retrieval evaluation orchestration."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from pathlib import Path
 from traffic_legal_qa.evaluation.datasets import GoldQuestion
 from traffic_legal_qa.evaluation.metrics import RetrievalEvaluation, evaluate_retrieval
 from traffic_legal_qa.ingestion.models import ParsedDocument
+from traffic_legal_qa.retrieval.dense import BKAIEncoder, DenseIndexStatus, Neo4jDenseRetriever
 from traffic_legal_qa.retrieval.lexical import LexicalIndexStatus, Neo4jLexicalRetriever
 
 
@@ -39,6 +40,47 @@ class R0EvaluationRun:
                 "exact_lookup": "document-id plus optional Article/Clause/Point locator",
                 "lexical_index": self.index.index_name,
                 "lexical_index_format": self.index.index_format,
+                "top_k": 10,
+            },
+            "index": self.index.model_dump(),
+            "metrics": self.evaluation.metrics.model_dump(),
+            "cases": [case.model_dump() for case in self.evaluation.cases],
+        }
+
+
+@dataclass(frozen=True)
+class R1EvaluationRun:
+    """One dense-only result with the BKAI model identity recorded."""
+
+    run_id: str
+    snapshot_id: str
+    split: str
+    question_set_sha256: str
+    git_commit: str | None
+    created_at: datetime
+    index: DenseIndexStatus
+    encoder_device: str
+    evaluation: RetrievalEvaluation
+
+    def model_dump(self) -> dict[str, object]:
+        return {
+            "run_id": self.run_id,
+            "snapshot_id": self.snapshot_id,
+            "split": self.split,
+            "question_set_sha256": self.question_set_sha256,
+            "git_commit": self.git_commit,
+            "created_at": self.created_at.isoformat(),
+            "retrieval_config": {
+                "name": "r1-dense-bkai-pyvi",
+                "embedding_model": self.index.model_name,
+                "embedding_model_revision": self.index.model_revision,
+                "embedding_dimensions": self.index.dimensions,
+                "max_sequence_length": 256,
+                "word_segmenter": "pyvi.ViTokenizer",
+                "normalize_embeddings": True,
+                "encoder_device": self.encoder_device,
+                "dense_index": self.index.index_name,
+                "dense_index_format": self.index.index_format,
                 "top_k": 10,
             },
             "index": self.index.model_dump(),
@@ -81,7 +123,43 @@ def run_r0_lexical(
     )
 
 
-def write_evaluation_run(path: Path, run: R0EvaluationRun) -> Path:
+def run_r1_dense(
+    retriever: Neo4jDenseRetriever,
+    encoder: BKAIEncoder,
+    snapshot_id: str,
+    documents: list[ParsedDocument],
+    questions: tuple[GoldQuestion, ...],
+    split: str,
+    question_set_sha256: str,
+    git_commit: str | None,
+) -> R1EvaluationRun:
+    """Search a frozen split with dense-only BKAI retrieval, without test-set tuning."""
+
+    if split not in {"dev", "test"}:
+        raise ValueError("split must be dev or test")
+    selected_questions = tuple(question for question in questions if question.split == split)
+    if not selected_questions:
+        raise ValueError(f"gold set has no {split} questions")
+    index = retriever.verify_index(snapshot_id, documents)
+    candidates_by_question_id = {
+        question.question_id: retriever.search(snapshot_id, question.question, encoder)
+        for question in selected_questions
+    }
+    evaluation = evaluate_retrieval(selected_questions, candidates_by_question_id)
+    return R1EvaluationRun(
+        run_id=f"{snapshot_id}::r1-dense-bkai-pyvi::{split}::{question_set_sha256[:12]}",
+        snapshot_id=snapshot_id,
+        split=split,
+        question_set_sha256=question_set_sha256,
+        git_commit=git_commit,
+        created_at=datetime.now(UTC),
+        index=index,
+        encoder_device=encoder.device,
+        evaluation=evaluation,
+    )
+
+
+def write_evaluation_run(path: Path, run: R0EvaluationRun | R1EvaluationRun) -> Path:
     """Persist one generated report outside version-controlled source inputs."""
 
     path.parent.mkdir(parents=True, exist_ok=True)

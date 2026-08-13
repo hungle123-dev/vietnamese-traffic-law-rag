@@ -4,7 +4,7 @@ Blueprint cho một sản phẩm tra cứu và hỏi đáp pháp luật giao th�
 
 ## Trạng thái
 
-Code hiện có gồm ingestion, **structural Neo4j graph**, contract kiểm chứng artifact `AMENDS`, 30 retrieval gold citations được source-verify, và R0 exact-plus-lexical retrieval/evaluator cho draft snapshot 12 văn bản: raw immutable, normalized text, parsed hierarchy, manifest, quality report, metadata portal, node/edge graph, full-text index contract và reconciliation command. Dense retrieval, hybrid fusion, rerank, generation có citation, cache và monitoring chưa được scaffold trước phase của chúng. Snapshot chưa được promote: cần báo cáo R0 chạy trên Neo4j, các baseline tiếp theo, và gold/relation record được người review pháp lý phê duyệt.
+Code hiện có gồm ingestion, **structural Neo4j graph**, contract kiểm chứng artifact `AMENDS`, 30 retrieval gold citations được source-verify, R0 exact-plus-lexical, và R1 dense-only retrieval/evaluator cho draft snapshot 12 văn bản. R1 dùng `bkai-foundation-models/vietnamese-bi-encoder` đã pin revision, bắt buộc PyVi word segmentation, và một Neo4j vector index chỉ trên Article/Clause/Point. Hybrid fusion, rerank, generation có citation, cache và monitoring chưa được scaffold trước phase của chúng. Snapshot chưa được promote: cần báo cáo R0/R1 trên Neo4j, chọn cấu hình R2 chỉ bằng dev, và gold/relation record được người review pháp lý phê duyệt.
 
 ## Product đã chốt
 
@@ -54,9 +54,17 @@ uv run traffic-legal-qa evaluate-r0 `
   --snapshot-id traffic-2026-08-13-v1 `
   --gold-set data/gold/traffic-2026-08-13-v1.source-verified.json `
   --split dev
+uv run traffic-legal-qa build-dense-index --snapshot-id traffic-2026-08-13-v1
+uv run traffic-legal-qa search-dense `
+  --snapshot-id traffic-2026-08-13-v1 `
+  --query "Hình thức xử phạt vi phạm giao thông gồm những gì?"
+uv run traffic-legal-qa evaluate-r1 `
+  --snapshot-id traffic-2026-08-13-v1 `
+  --gold-set data/gold/traffic-2026-08-13-v1.source-verified.json `
+  --split dev
 ```
 
-`build-lexical-index` là bước offline và kiểm tra Neo4j có đúng 6.433 legal units của snapshot. `search-lexical` chỉ đọc index đã `ONLINE`; nó không tự tạo index trên query path. Chỉ chạy `evaluate-r0 --split test` sau khi đã chốt mọi quyết định R0 bằng dev; report sinh ra ở `data/evaluations/` không được commit.
+`build-lexical-index` là bước offline và kiểm tra Neo4j có đúng 6.433 legal units của snapshot. `build-dense-index` cũng offline: nó embed đúng 6.343 Article/Clause/Point, kiểm tra label `LegalUnit`, count, index schema và cấm lẫn embedding từ snapshot khác. Hai lệnh search chỉ đọc index đã `ONLINE`; chúng không tự tạo index trên query path. Chỉ chạy test split sau khi đã chốt toàn bộ R0/R1/R2 bằng dev; report sinh ra ở `data/evaluations/` không được commit.
 
 Sau khi một curator phê duyệt relation artifact, kiểm chứng nó trước rồi truyền cùng artifact cho cả import và verify:
 

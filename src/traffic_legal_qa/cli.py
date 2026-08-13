@@ -19,7 +19,7 @@ from traffic_legal_qa.evaluation.datasets import (
     load_gold_question_artifact,
     resolve_gold_questions,
 )
-from traffic_legal_qa.evaluation.runner import run_r0_lexical, write_evaluation_run
+from traffic_legal_qa.evaluation.runner import run_r0_lexical, run_r1_dense, write_evaluation_run
 from traffic_legal_qa.graph.importer import GraphImportError, GraphSnapshotImporter, expected_counts
 from traffic_legal_qa.ingestion.models import ParsedDocument, ReviewedSource
 from traffic_legal_qa.ingestion.pipeline import IngestionPipeline
@@ -30,6 +30,7 @@ from traffic_legal_qa.ingestion.relations import (
     resolve_approved_relations,
 )
 from traffic_legal_qa.ingestion.storage import ArtifactStore
+from traffic_legal_qa.retrieval.dense import BKAIEncoder, DenseIndexError, Neo4jDenseRetriever
 from traffic_legal_qa.retrieval.lexical import LexicalIndexError, Neo4jLexicalRetriever
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
@@ -630,6 +631,178 @@ def evaluate_r0(
         ValidationError,
     ) as exc:
         raise typer.BadParameter(f"cannot evaluate R0: {snapshot_id}") from exc
+    typer.echo(
+        json.dumps(
+            {
+                "run_id": run.run_id,
+                "snapshot_id": snapshot_id,
+                "split": split,
+                "report_path": str(destination),
+                "metrics": run.evaluation.metrics.model_dump(),
+            },
+            ensure_ascii=False,
+        )
+    )
+
+
+@app.command("build-dense-index")
+def build_dense_index(
+    snapshot_id: Annotated[str, typer.Option(help="Validated draft snapshot identifier.")],
+    neo4j_password: Annotated[
+        str,
+        typer.Option(envvar="NEO4J_PASSWORD", help="Neo4j password; prefer NEO4J_PASSWORD."),
+    ],
+    batch_size: Annotated[
+        int,
+        typer.Option(help="BKAI embedding batch size; tune only for local hardware limits."),
+    ] = 32,
+    device: Annotated[
+        str | None,
+        typer.Option(help="SentenceTransformer device; defaults to CUDA when available, else CPU."),
+    ] = None,
+    data_root: Annotated[Path, typer.Option(help="Artifact root.")] = Path("data"),
+    neo4j_uri: Annotated[str, typer.Option(help="Bolt URI.")] = "bolt://localhost:7687",
+    neo4j_username: Annotated[str, typer.Option(help="Neo4j username.")] = "neo4j",
+    neo4j_database: Annotated[str, typer.Option(help="Neo4j database.")] = "neo4j",
+) -> None:
+    """Embed a frozen snapshot and create the R1 BKAI vector index offline."""
+
+    try:
+        documents = _parsed_documents(snapshot_id, data_root)
+        with GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password)) as driver:
+            driver.verify_connectivity()
+            status = Neo4jDenseRetriever(driver, database=neo4j_database).build_index(
+                snapshot_id,
+                documents,
+                BKAIEncoder(device),
+                batch_size=batch_size,
+            )
+    except (
+        DenseIndexError,
+        DriverError,
+        Neo4jError,
+        OSError,
+        ValueError,
+        json.JSONDecodeError,
+        ValidationError,
+    ) as exc:
+        raise typer.BadParameter(f"cannot build dense index: {snapshot_id}") from exc
+    typer.echo(json.dumps(status.model_dump(), ensure_ascii=False))
+
+
+@app.command("search-dense")
+def search_dense(
+    snapshot_id: Annotated[str, typer.Option(help="Validated draft snapshot identifier.")],
+    query: Annotated[str, typer.Option(help="Vietnamese legal retrieval query.")],
+    neo4j_password: Annotated[
+        str,
+        typer.Option(envvar="NEO4J_PASSWORD", help="Neo4j password; prefer NEO4J_PASSWORD."),
+    ],
+    top_k: Annotated[int, typer.Option(help="Maximum candidates, from 1 through 50.")] = 10,
+    device: Annotated[
+        str | None,
+        typer.Option(help="SentenceTransformer device; defaults to CUDA when available, else CPU."),
+    ] = None,
+    data_root: Annotated[Path, typer.Option(help="Artifact root.")] = Path("data"),
+    neo4j_uri: Annotated[str, typer.Option(help="Bolt URI.")] = "bolt://localhost:7687",
+    neo4j_username: Annotated[str, typer.Option(help="Neo4j username.")] = "neo4j",
+    neo4j_database: Annotated[str, typer.Option(help="Neo4j database.")] = "neo4j",
+) -> None:
+    """Retrieve dense-only BKAI candidates from an already-built vector index."""
+
+    try:
+        documents = _parsed_documents(snapshot_id, data_root)
+        with GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password)) as driver:
+            driver.verify_connectivity()
+            retriever = Neo4jDenseRetriever(driver, database=neo4j_database)
+            retriever.verify_index(snapshot_id, documents)
+            candidates = retriever.search(snapshot_id, query, BKAIEncoder(device), top_k=top_k)
+    except (
+        DenseIndexError,
+        DriverError,
+        Neo4jError,
+        OSError,
+        ValueError,
+        json.JSONDecodeError,
+        ValidationError,
+    ) as exc:
+        raise typer.BadParameter(f"cannot search dense index: {snapshot_id}") from exc
+    typer.echo(
+        json.dumps(
+            {
+                "snapshot_id": snapshot_id,
+                "retrieval_config": "r1-dense-bkai-pyvi",
+                "query": query,
+                "candidate_count": len(candidates),
+                "candidates": [candidate.model_dump() for candidate in candidates],
+            },
+            ensure_ascii=False,
+        )
+    )
+
+
+@app.command("evaluate-r1")
+def evaluate_r1(
+    snapshot_id: Annotated[str, typer.Option(help="Validated draft snapshot identifier.")],
+    gold_set: Annotated[
+        Path,
+        typer.Option(
+            exists=True,
+            dir_okay=False,
+            readable=True,
+            help="Citation-backed retrieval gold-set JSON.",
+        ),
+    ],
+    neo4j_password: Annotated[
+        str,
+        typer.Option(envvar="NEO4J_PASSWORD", help="Neo4j password; prefer NEO4J_PASSWORD."),
+    ],
+    split: Annotated[str, typer.Option(help="Frozen gold split: dev or test.")] = "dev",
+    report_path: Annotated[
+        Path | None,
+        typer.Option(help="Generated report path; defaults under data/evaluations/."),
+    ] = None,
+    device: Annotated[
+        str | None,
+        typer.Option(help="SentenceTransformer device; defaults to CUDA when available, else CPU."),
+    ] = None,
+    data_root: Annotated[Path, typer.Option(help="Artifact root.")] = Path("data"),
+    neo4j_uri: Annotated[str, typer.Option(help="Bolt URI.")] = "bolt://localhost:7687",
+    neo4j_username: Annotated[str, typer.Option(help="Neo4j username.")] = "neo4j",
+    neo4j_database: Annotated[str, typer.Option(help="Neo4j database.")] = "neo4j",
+) -> None:
+    """Evaluate the fixed R1 BKAI dense baseline without test-set tuning."""
+
+    try:
+        documents = _parsed_documents(snapshot_id, data_root)
+        questions = resolve_gold_questions(load_gold_question_artifact(gold_set), documents)
+        with GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password)) as driver:
+            driver.verify_connectivity()
+            retriever = Neo4jDenseRetriever(driver, database=neo4j_database)
+            run = run_r1_dense(
+                retriever,
+                BKAIEncoder(device),
+                snapshot_id,
+                documents,
+                questions,
+                split,
+                hashlib.sha256(gold_set.read_bytes()).hexdigest(),
+                _git_commit(),
+            )
+        destination = report_path or (
+            data_root / "evaluations" / f"{snapshot_id}.r1-dense-bkai-pyvi-{split}.json"
+        )
+        write_evaluation_run(destination, run)
+    except (
+        DenseIndexError,
+        DriverError,
+        Neo4jError,
+        OSError,
+        ValueError,
+        json.JSONDecodeError,
+        ValidationError,
+    ) as exc:
+        raise typer.BadParameter(f"cannot evaluate R1: {snapshot_id}") from exc
     typer.echo(
         json.dumps(
             {

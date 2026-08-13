@@ -17,7 +17,7 @@ Every node and relationship must trace to a reviewed parsed artifact and source 
 | Organization, Signer | Issuer and signer metadata from portal | Yes when source provides it |
 | Part, Chapter, Section, Article, Clause, Point | Explicit legal hierarchy labels | Yes when parser creates them |
 
-`LegalUnit` is deliberately the generic, durable **parsed-artifact** model. It is not the Neo4j schema. The importer projects its `unit_type` to explicit labels and `HAS_*` edges, matching the legal hierarchy that users see and the topology used in the NLP-LegalQA reference. Citation IDs never use Neo4j internal IDs or vector IDs.
+`LegalUnit` is deliberately the generic, durable **parsed-artifact** model. It is not the Neo4j schema. The importer projects its `unit_type` to explicit labels and `HAS_*` edges, matching the legal hierarchy that users see and the topology used in the NLP-LegalQA reference. For R1 only, physical `Article`, `Clause`, and `Point` nodes also receive the shared `LegalUnit` label so one Neo4j vector index can target answer-sized provisions; Part/Chapter/Section remain hierarchy-only. Citation IDs never use Neo4j internal IDs or vector IDs.
 
 ### Document properties
 
@@ -129,7 +129,7 @@ The public API never accepts arbitrary Cypher or LLM-generated graph queries.
 
 `graph/importer.py` accepts only the same validated parsed snapshot used by the ingestion CLI. It creates 13 Neo4j uniqueness constraints, MERGEs nodes and structural edges, then runs `verify-graph`; a count mismatch makes the command fail. The verified `traffic-2026-08-13-v1` graph contains 12 `Document`, 6,433 hierarchy nodes, 6,445 `IN_SNAPSHOT` edges, and 6,433 `HAS_*` edges. The count is intentionally `12 + 6,433` for snapshot membership; metadata edges are separate. Re-running the import produced the same counts.
 
-Phase 2B adds a validated approved-relation artifact contract and optional `AMENDS` projection. It verifies artifact version, snapshot scope, approval, reviewer, provenance, source raw SHA-256 and URL, plus source/target/evidence locators before the importer sees a record. `AMENDS` remains zero until a human-reviewed artifact is supplied. Phase 2D adds a snapshot-checked Neo4j lexical-index contract and R0 source-ID retrieval report; `RELATED_TO`, vector indexes, and public retrieval artifacts remain absent.
+Phase 2B adds a validated approved-relation artifact contract and optional `AMENDS` projection. It verifies artifact version, snapshot scope, approval, reviewer, provenance, source raw SHA-256 and URL, plus source/target/evidence locators before the importer sees a record. `AMENDS` remains zero until a human-reviewed artifact is supplied. Phase 2D adds a snapshot-checked Neo4j lexical-index contract and R0 source-ID retrieval report. Phase 2E adds `LegalUnit` only as the dense-index label described above and rejects multi-snapshot embeddings on Neo4j 5.26; it creates no semantic entity/relation or public QA artifact.
 
 ## Deferred complexity
 

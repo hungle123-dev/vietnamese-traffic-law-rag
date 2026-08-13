@@ -65,6 +65,8 @@ class RetrievalCandidate:
     exact_rank: int | None = None
     lexical_rank: int | None = None
     lexical_score: float | None = None
+    dense_rank: int | None = None
+    dense_score: float | None = None
 
     def model_dump(self) -> dict[str, object]:
         return {
@@ -79,6 +81,8 @@ class RetrievalCandidate:
             "exact_rank": self.exact_rank,
             "lexical_rank": self.lexical_rank,
             "lexical_score": self.lexical_score,
+            "dense_rank": self.dense_rank,
+            "dense_score": self.dense_score,
         }
 
 
@@ -144,7 +148,10 @@ class Neo4jLexicalRetriever:
 
         if not 1 <= top_k <= 50:
             raise LexicalIndexError("top_k must be between 1 and 50")
-        normalized_query = _normalize_query(query)
+        try:
+            normalized_query = normalize_retrieval_query(query)
+        except ValueError as exc:
+            raise LexicalIndexError(str(exc)) from exc
         document_ids = _matching_document_ids(documents, normalized_query)
         exact_unit_ids = _exact_unit_ids(documents, document_ids, normalized_query)
         exact_candidates = self._load_exact_candidates(snapshot_id, exact_unit_ids)
@@ -290,12 +297,14 @@ def _validated_unit_count(snapshot_id: str, documents: list[ParsedDocument]) -> 
     return len(unit_ids)
 
 
-def _normalize_query(query: str) -> str:
+def normalize_retrieval_query(query: str) -> str:
+    """Normalize the shared bounded query surface before any retriever runs."""
+
     normalized = " ".join(unicodedata.normalize("NFC", query).split())
     if not normalized:
-        raise LexicalIndexError("query must not be blank")
+        raise ValueError("query must not be blank")
     if len(normalized) > 1000:
-        raise LexicalIndexError("query exceeds 1000 characters")
+        raise ValueError("query exceeds 1000 characters")
     return normalized
 
 

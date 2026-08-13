@@ -268,10 +268,14 @@ class GraphSnapshotImporter:
             ]
             if not rows:
                 continue
+            dense_label = (
+                " SET unit:LegalUnit" if unit_type in {"article", "clause", "point"} else ""
+            )
             self._execute(
                 "UNWIND $rows AS row "
                 f"MERGE (unit:{label} {{unit_key: row.unit_key}}) "
                 "SET unit += row.properties "
+                f"{dense_label} "
                 "WITH unit "
                 "MATCH (snapshot:Snapshot {snapshot_id: $snapshot_id}) "
                 "MERGE (unit)-[:IN_SNAPSHOT]->(snapshot)",

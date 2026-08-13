@@ -134,7 +134,7 @@ reports/{run_id}.json
 - Quarantine is a run/manifest classification of the one immutable raw artifact, not a second copy of its bytes.
 - Logical `document_id` and `unit_id` stay stable across refreshes; a graph import scopes their physical records by `snapshot_id`.
 - A tracked retrieval gold set is separate from raw/parsed artifacts. It has a snapshot ID, stable question ID, fixed split, gold document/unit IDs, query date, question type, difficulty, and explicit review status. The validator resolves every gold unit to a gold document in the frozen validated snapshot. `source_verified` means that the source provision and its ID were re-read; it is not human legal approval and does not authorize a validity conclusion.
-- Neo4j full-text indexes and R0 evaluation reports are generated artifacts. `build-lexical-index` creates and waits for the one fixed index offline; `search-lexical` and `evaluate-r0` first require that index to be `ONLINE` and reconcile its graph unit count with the frozen parsed snapshot. Generated reports remain outside Git.
+- Neo4j full-text/vector indexes and R0/R1 evaluation reports are generated artifacts. `build-lexical-index` builds the full-text index over all 6,433 hierarchy units; `build-dense-index` batches the pinned BKAI+PyVi model over the 6,343 answer-sized Article/Clause/Point units. Both create and wait offline. Search/evaluation first require their relevant index to be `ONLINE` and reconcile counts with the frozen parsed snapshot. Generated reports remain outside Git.
 
 ## Curated relation artifact
 
@@ -188,10 +188,10 @@ Validation rejects empty units, duplicate IDs, missing parents, and malformed pa
 
 ```text
 catalogued → fetched → raw_stored → normalized → parsed → validated
-→ manifested → graph_projected → lexical_indexed → smoke_tested → evaluated → promoted
+→ manifested → graph_projected → lexical_indexed + dense_indexed → smoke_tested → evaluated → promoted
 ```
 
-Dense embedding and vector indexing are a later branch after the lexical baseline is measured; they are not prerequisites for the current R0 gate.
+R0 and R1 remain independent baselines. The dense builder never mutates raw, normalized, parsed, manifest, or gold artifacts; it only writes embedding/index state to Neo4j after snapshot validation.
 
 Failures record an error code, timestamp, and raw artifact when available. No partial snapshot can be promoted.
 

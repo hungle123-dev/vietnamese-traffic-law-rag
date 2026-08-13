@@ -102,6 +102,7 @@ def test_importer_projects_only_the_explicit_structural_graph() -> None:
     assert any("CREATE CONSTRAINT article_unit_key" in query for query in driver.queries)
     assert any("HAS_ARTICLE" in query for query in driver.queries)
     assert any("HAS_POINT" in query for query in driver.queries)
+    assert any("SET unit:LegalUnit" in query for query in driver.queries)
     assert not any("AMENDS" in query for query in driver.queries)
 
 

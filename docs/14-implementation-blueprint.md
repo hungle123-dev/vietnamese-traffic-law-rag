@@ -122,6 +122,10 @@ At the Phase 2A release, the importer reused `_validated_snapshot`, created cons
 
 `retrieval/lexical.py` provides exact document/Điều/Khoản/Điểm lookup plus a single Neo4j full-text adapter. `build-lexical-index` is deliberately separate from `search-lexical`: the first creates the fixed full-text index and waits for `ONLINE`; the second only reads an index that has already passed snapshot-count reconciliation. `evaluation/metrics.py` and `evaluation/runner.py` compute source-ID retrieval metrics and persist a reproducible generated report via `evaluate-r0`. The first live R0 report remains an explicit gate: do not claim retrieval quality or tune against `test` until `dev` has been run against the local Neo4j snapshot.
 
+### Phase 2E delivered: R1 BKAI+PyVi dense baseline code
+
+`retrieval/dense.py` embeds only Article/Clause/Point using the revision-pinned BKAI Vietnamese bi-encoder after mandatory PyVi word segmentation. Its explicit `LegalUnit` graph label permits exactly one Neo4j cosine vector index, while preserving the separate visible legal labels and hierarchy. `build-dense-index` is the only embedding/write path; it validates model dimension/index schema, graph and embedding coverage, and single-snapshot scope before producing an `ONLINE` index. `search-dense` and `evaluate-r1` only verify and read it. R1 writes the same source-ID retrieval evidence as R0 plus reproducible embedding configuration. R2 fusion remains blocked until R0/R1 dev reports are compared; neither baseline may tune against test.
+
 ## Phase 3 implementation order
 
 Only after R0–R2 establish a retrieval configuration, add:
