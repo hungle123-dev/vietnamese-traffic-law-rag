@@ -35,11 +35,10 @@ class R0EvaluationRun:
             "git_commit": self.git_commit,
             "created_at": self.created_at.isoformat(),
             "retrieval_config": {
-                "name": "r0-lexical-3way-rrf",
+                "name": "r0-lexical",
                 "exact_lookup": "document-id plus optional Article/Clause/Point locator",
-                "lexical_indexes": list(self.index.index_names),
+                "lexical_index": self.index.index_name,
                 "lexical_index_format": self.index.index_format,
-                "lexical_fusion": "RRF(k=60) across Article, Clause, and Point ranks",
                 "top_k": 10,
             },
             "index": self.index.model_dump(),
@@ -71,7 +70,7 @@ def run_r0_lexical(
     }
     evaluation = evaluate_retrieval(selected_questions, candidates_by_question_id)
     return R0EvaluationRun(
-        run_id=f"{snapshot_id}::r0-lexical-3way-rrf::{split}::{question_set_sha256[:12]}",
+        run_id=f"{snapshot_id}::r0-lexical::{split}::{question_set_sha256[:12]}",
         snapshot_id=snapshot_id,
         split=split,
         question_set_sha256=question_set_sha256,

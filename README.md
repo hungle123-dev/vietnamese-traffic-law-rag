@@ -56,7 +56,7 @@ uv run traffic-legal-qa evaluate-r0 `
   --split dev
 ```
 
-`build-lexical-index` là bước offline: nó tạo và kiểm tra ba index `Article`/`Clause`/`Point`, đối soát đúng 6.343 retrieval units của snapshot, rồi chỉ `search-lexical` mới đọc các index đã `ONLINE`. Query path không tự tạo index. Chỉ chạy `evaluate-r0 --split test` sau khi đã chốt mọi quyết định R0 bằng dev; report sinh ra ở `data/evaluations/` không được commit.
+`build-lexical-index` là bước offline và kiểm tra Neo4j có đúng 6.433 legal units của snapshot. `search-lexical` chỉ đọc index đã `ONLINE`; nó không tự tạo index trên query path. Chỉ chạy `evaluate-r0 --split test` sau khi đã chốt mọi quyết định R0 bằng dev; report sinh ra ở `data/evaluations/` không được commit.
 
 Sau khi một curator phê duyệt relation artifact, kiểm chứng nó trước rồi truyền cùng artifact cho cả import và verify:
 

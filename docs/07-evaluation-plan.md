@@ -118,4 +118,4 @@ If a target is missed, report the root-cause analysis and limitation rather than
     git_commit
     timestamp
 
-The R0 report currently persists the equivalent concrete fields: run ID, snapshot ID, frozen split, gold-file SHA-256, git commit, creation time, fixed three-index lexical contract/format/state/counts, retrieval configuration including RRF, aggregate metrics, and ranked source IDs per question. It deliberately stores no generated answer or LLM-judge score.
+The R0 report currently persists the equivalent concrete fields: run ID, snapshot ID, frozen split, gold-file SHA-256, git commit, creation time, fixed lexical-index name/format/state/counts, retrieval configuration, aggregate metrics, and ranked source IDs per question. It deliberately stores no generated answer or LLM-judge score.
