@@ -1,14 +1,14 @@
-# 15. Candidate seed catalog — Vietnamese road-traffic law
+# 15. Pilot seed catalog — Vietnamese road-traffic law
 
-> **State:** draft for curator review; not an approved corpus catalog.
+> **State:** approved source catalog for a draft snapshot; not a promoted corpus or graph-relation dataset.
 >
 > **Verified against the portal API:** 2026-08-13.
 >
-> This document creates neither source code nor a `data/` artifact. No record below may be parsed, indexed, evaluated, or imported into the graph until it has passed the approved-catalog contract in [03-data-and-ingestion.md](03-data-and-ingestion.md).
+> The version-controlled catalog is [`data/catalog/pilot-traffic-2026-08-13-v1.json`](../data/catalog/pilot-traffic-2026-08-13-v1.json). All 12 records have been parsed into a validated draft snapshot; no record has been indexed, evaluated, or imported into a graph.
 
 ## Purpose and boundary
 
-This is the proposed 12-document **pilot** for the product's domain: Vietnamese road-traffic law. It is deliberately a small, useful slice for proving the whole data path before expanding to the 15–30 records planned for v1. The selection was revised after an exhaustive pagination check of the current portal search on 2026-08-13 resolved several predecessor documents that an earlier, incomplete search had missed.
+This is the approved 12-document **pilot** for the product's domain: Vietnamese road-traffic law. It is deliberately a small, useful slice for proving the whole data path before expanding to the 15–30 records planned for v1. The selection was revised after an exhaustive pagination check of the current portal search on 2026-08-13 resolved several predecessor documents that an earlier, incomplete search had missed.
 
 The selection is independent. It does not copy portal GUIDs, raw data, parsed files, amendment records, or graph edges from the NLP-LegalQA reference repository. Its processing shape may later resemble that project's `portal detail -> text + metadata -> parsed hierarchy -> reviewed relations -> graph` flow, but every source and every legal relation in this project must be collected and reviewed afresh.
 
@@ -26,9 +26,9 @@ For every proposed record, a direct request to the portal detail endpoint on 202
 
 Vietnamese JSON was decoded from UTF-8 bytes before validation. The public route is client-rendered: a headless browser was blocked by the portal WAF, so title and content identity are verified through the same first-party detail API used by the UI, not inferred from the SSR shell. The portal's relation fields were empty for the amendment documents checked, so they are not used as graph evidence.
 
-`candidate_api_verified` below means only the four checks above passed. It does **not** mean `approved`: each row still needs a manually captured public-page URL, curator sign-off, and—where relevant—provision-level relation evidence.
+The technical verification above is separate from legal-relation approval. Curator approval, public-page URLs, and any reviewed literal corrections are recorded in the version-controlled catalog; provision-level relation evidence is still required before any graph edge or temporal answer is allowed.
 
-## Proposed documents
+## Approved pilot documents
 
 ### A. Foundation
 
@@ -106,7 +106,7 @@ The selection is based on a fixed order of evidence, not on “the newest docume
 | Road-transport activity | `158`, `218` | The pair is a separate road-transport regime and a second independently reviewable amendment chain. |
 | Licensing procedure | `12`, `108` | The overlap is intentional: both are effective, so the system must retrieve evidence and warn rather than invent a replacement relation. |
 
-This yields one foundation law, five distinct question families, and four explicit document-lifecycle cases (`238→168`, `241→165`, `236→151`, `218→158`). The 12 records are therefore a better **GraphRAG pilot** than a list of 12 unrelated traffic documents; they test retrieval, citations, time, and relation review together.
+This yields one foundation law, five distinct question families, and four explicit document-lifecycle cases (`238→168`, `241→165`, `236→151`, `218→158`). The 12 records are a stronger future GraphRAG evaluation slice than 12 unrelated traffic documents because they will test retrieval, citations, time, and relation review together.
 
 ## Final bounded validation
 
@@ -117,15 +117,12 @@ This yields one foundation law, five distinct question families, and four explic
 | Amendment evidence | One precise Article-1 provision mapping is reviewed for each of the four amendment chains. | This is sufficient for four seed temporal questions only; it is not a claim that every amendment provision has been mapped. |
 | Scope and safety | `238/2026/NĐ-CP` is explicitly marked not effective until 2026-08-15. | No current-law answer may apply it before that date. |
 
-It is still only a pilot. It has no parsed hierarchy, no machine-readable approved relation artifact, and no gold questions. Calling it “the corpus” now would be false.
+It is still only a pilot. The validated draft snapshot has 6,433 hierarchy units, but has no machine-readable approved relation artifact and no gold questions. Calling it the promoted corpus or a GraphRAG system now would be false.
 
-## Required review before approval
+## Remaining gates before promotion
 
-To convert this proposal into an approved seed catalog, complete all of the following for every selected record:
+Before any graph, retrieval, or QA implementation, complete all of the following:
 
 1. Keep the recorded public URL and re-run the source contract immediately before each future snapshot; do not re-discover a record by title.
-2. Mark each row `approved` or `blocked_no_structured_content` in the future versioned catalog.
-3. For every temporal pilot question, promote its reviewed provision mapping into a relation-evidence record after parsing provides stable unit IDs; otherwise design the question to return a validity warning or abstain.
-4. Write 30 pilot questions with gold citations only after the selected documents have stable parsed unit IDs.
-
-**Decision requested:** approve or revise this 12-document composition and its stated gaps. Until that decision, Phase 0 remains open; only a single non-promoted technical smoke may validate the source contract, and no corpus-scale ingestion should start.
+2. For every temporal pilot question, promote its reviewed provision mapping into a relation-evidence record after parsing provides stable unit IDs; otherwise design the question to return a validity warning or abstain.
+3. Write 30 pilot questions with gold citations only after the selected documents have stable parsed unit IDs.

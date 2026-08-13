@@ -8,21 +8,27 @@ from typing import Final
 
 from traffic_legal_qa.ingestion.models import CanonicalMetadata, LegalUnit, ParsedDocument, UnitType
 
-PARSER_VERSION: Final = "1"
+PARSER_VERSION: Final = "2"
 _RANK: Final = {"part": 0, "chapter": 1, "section": 2, "article": 3, "clause": 4, "point": 5}
 _STRUCTURAL_TYPES: Final = frozenset({"part", "chapter", "section"})
-_PART = re.compile(r"^PHẦN\s+(?P<number>.+?)(?:[.:]\s*(?P<title>.*))?$", re.IGNORECASE)
-_CHAPTER = re.compile(
-    r"^CHƯƠNG\s+(?P<number>[IVXLCDM]+|\d+[A-Za-z]?)(?:[.:]\s*(?P<title>.*))?$",
+_PART = re.compile(
+    r"^PHẦN\s+(?P<number>(?:THỨ\s+)?(?:NHẤT|HAI|BA|TƯ|NĂM|SÁU|BẢY|TÁM|CHÍN|MƯỜI|[IVXLCDM]+|\d+[A-Za-z]?))"
+    r"(?:(?:[.:]\s*|\s+)(?P<title>.*))?$",
     re.IGNORECASE,
 )
 _SECTION = re.compile(
-    r"^MỤC\s+(?P<number>[IVXLCDM]+|\d+[A-Za-z]?)(?:[.:]\s*(?P<title>.*))?$",
+    r"^MỤC\s+(?P<number>[IVXLCDM]+|\d+[A-Za-z]?)(?:(?:[.:]\s*|\s+)(?P<title>.*))?$",
+    re.IGNORECASE,
+)
+_CHAPTER = re.compile(
+    r"^CHƯƠNG\s+(?P<number>[IVXLCDM]+|\d+[A-Za-z]?)(?:(?:[.:]\s*|\s+)(?P<title>.*))?$",
     re.IGNORECASE,
 )
 _ARTICLE = re.compile(r"^Điều\s+(?P<number>\d+[A-Za-z]?)(?:\.\s*)?(?P<title>.*)$", re.IGNORECASE)
 _CLAUSE = re.compile(r"^(?P<number>\d+[A-Za-z]?)\.\s+(?P<text>.+)$")
 _POINT = re.compile(r"^(?P<number>[a-zđ])\)\s+(?P<text>.+)$", re.IGNORECASE)
+_APPENDIX = re.compile(r"^PHỤ LỤC(?:\s|$)", re.IGNORECASE)
+_SPLIT_STRUCTURAL_HEADING = re.compile(r"^(PHẦN|CHƯƠNG|MỤC)$", re.IGNORECASE)
 
 
 class HierarchyParseError(ValueError):
@@ -73,7 +79,7 @@ def _unit_id(document_id: str, unit_type: UnitType, number: str, parent_id: str 
 
 
 class LegalHierarchyParser:
-    """Parses headings only; it never infers missing legal structure."""
+    """Parses the main legal hierarchy without inferring missing structure."""
 
     def parse(self, text: str, metadata: CanonicalMetadata) -> ParsedDocument:
         active: dict[UnitType, _UnitBuilder] = {}
@@ -124,9 +130,15 @@ class LegalHierarchyParser:
             builders.append(builder)
             active[unit_type] = builder
 
-        for raw_line in text.splitlines():
-            line = raw_line.strip()
-            if not line:
+        in_quoted_block = False
+        for line in self._logical_lines(text):
+            if _APPENDIX.match(line):
+                # ponytail: ignore appendix forms in v2; add a schema when a use case cites them.
+                break
+            if in_quoted_block or line.startswith("“"):
+                if unit := current():
+                    unit.add_text(line)
+                in_quoted_block = line.count("“") > line.count("”")
                 continue
             if match := _PART.match(line):
                 start("part", match["number"].strip(), _normalize_heading_title(match["title"]))
@@ -154,6 +166,21 @@ class LegalHierarchyParser:
             parser_version=PARSER_VERSION,
             units=units,
         )
+
+    @staticmethod
+    def _logical_lines(text: str) -> tuple[str, ...]:
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        logical_lines: list[str] = []
+        index = 0
+        while index < len(lines):
+            line = lines[index]
+            if _SPLIT_STRUCTURAL_HEADING.match(line) and index + 1 < len(lines):
+                logical_lines.append(f"{line} {lines[index + 1]}")
+                index += 2
+            else:
+                logical_lines.append(line)
+                index += 1
+        return tuple(logical_lines)
 
     @staticmethod
     def _validate(units: tuple[LegalUnit, ...], document_id: str) -> None:

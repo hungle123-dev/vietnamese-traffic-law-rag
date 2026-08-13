@@ -47,3 +47,66 @@ def test_parser_rejects_a_duplicate_point_label() -> None:
 
     with pytest.raises(HierarchyParseError, match="duplicate legal unit"):
         LegalHierarchyParser().parse(text, metadata())
+
+
+def test_parser_combines_a_split_chapter_heading() -> None:
+    text = """Chương
+VI Đường cao tốc
+Mục 1
+Phạm vi
+Điều 1. Quy định chung"""
+
+    parsed = LegalHierarchyParser().parse(text, metadata())
+    units = {unit.unit_id: unit for unit in parsed.units}
+
+    chapter = units["168/2024/NĐ-CP::chapter::VI"]
+    section = units["168/2024/NĐ-CP::chapter::VI::section::1"]
+    assert chapter.title == "Đường cao tốc"
+    assert section.parent_id == chapter.unit_id
+
+
+def test_parser_preserves_quoted_amendment_text_without_creating_nested_units() -> None:
+    text = """Điều 1. Sửa đổi
+1. Sửa đổi như sau:
+“1. Nội dung được thay thế.
+2. Nội dung của văn bản được sửa đổi.”
+2. Quy định tiếp theo."""
+
+    parsed = LegalHierarchyParser().parse(text, metadata())
+    units = {unit.unit_id: unit for unit in parsed.units}
+
+    first_clause = units["168/2024/NĐ-CP::article::1::clause::1"]
+    assert "2. Nội dung của văn bản được sửa đổi.”" in first_clause.text
+    assert "168/2024/NĐ-CP::article::1::clause::2" in units
+
+
+def test_parser_stops_main_hierarchy_before_an_appendix() -> None:
+    text = """Điều 1. Quy định chung
+PHỤ LỤC I
+1. Trường biểu mẫu"""
+
+    parsed = LegalHierarchyParser().parse(text, metadata())
+
+    assert [unit.unit_type for unit in parsed.units] == ["article"]
+
+
+def test_parser_keeps_parsing_after_an_inline_quote() -> None:
+    text = """Điều 1. Quy định chung
+1. Cụm từ “nội dung trích dẫn” được áp dụng.
+2. Quy định tiếp theo."""
+
+    parsed = LegalHierarchyParser().parse(text, metadata())
+    unit_ids = {unit.unit_id for unit in parsed.units}
+
+    assert "168/2024/NĐ-CP::article::1::clause::2" in unit_ids
+
+
+def test_parser_does_not_treat_part_noun_as_a_structural_heading() -> None:
+    text = """Chương III
+PHẦN ĐẤT ĐỂ BẢO VỆ ĐƯỜNG BỘ
+Điều 10. Quy định chung"""
+
+    parsed = LegalHierarchyParser().parse(text, metadata())
+    units = {unit.unit_id: unit for unit in parsed.units}
+
+    assert units["168/2024/NĐ-CP::chapter::III"].title == "PHẦN ĐẤT ĐỂ BẢO VỆ ĐƯỜNG BỘ"

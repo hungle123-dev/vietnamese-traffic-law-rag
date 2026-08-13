@@ -93,6 +93,11 @@ class ArtifactStore:
         self._write_json(path, manifest)
         return path
 
+    def write_report(self, snapshot_id: str, payload: object) -> Path:
+        path = self._root / "reports" / f"{snapshot_id}.json"
+        self._write_json(path, payload)
+        return path
+
     @staticmethod
     def _write_once(path: Path, content: bytes) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)

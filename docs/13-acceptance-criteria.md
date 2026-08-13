@@ -18,23 +18,23 @@ This checklist distinguishes a documentation-ready blueprint from a released pro
 
 ## B. Phase 0 data-readiness gate
 
-- [ ] About 12 source GUIDs have manual portal verification.
-- [ ] Every selected record has expected document ID, title, public page URL, and curator status.
-- [ ] Every selected response contains complete readable structured HTML.
+- [x] Twelve source GUIDs have manual portal verification.
+- [x] Every selected record has expected document ID, title, public page URL, and curator status.
+- [x] Every selected response contains complete readable structured HTML.
 - [ ] Thirty pilot questions have reviewed gold citation IDs.
 - [ ] Every pilot temporal or amendment question has an approved relation-evidence record.
-- [ ] Sanitized portal JSON and HTML fixtures exist.
-- [ ] Curator checklist documents status and relation limitations.
+- [x] Sanitized portal JSON and HTML fixtures exist.
+- [x] Curator checklist documents status and relation limitations.
 
 ## C. Data foundation gate
 
-- [ ] Portal response schema is validated before artifact promotion.
-- [ ] Raw responses are immutable and content-addressed.
-- [ ] Normalization is deterministic and versioned.
-- [ ] Parser returns stable hierarchy IDs for fixtures.
-- [ ] Duplicate, empty, and orphan units are rejected.
-- [ ] A manifest includes only validated parsed artifacts.
-- [ ] A quality report records source, parser, and catalog versions.
+- [x] Portal response schema is validated before artifact promotion.
+- [x] Raw responses are immutable and content-addressed.
+- [x] Normalization is deterministic and versioned.
+- [x] Parser returns stable hierarchy IDs for fixtures.
+- [x] Duplicate, empty, and orphan units are rejected.
+- [x] A manifest includes only validated parsed artifacts.
+- [x] A quality report records source, parser, and catalog versions.
 - [ ] Failure retains raw artifact when available and blocks promotion.
 
 ## D. Retrieval and graph gate

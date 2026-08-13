@@ -4,7 +4,7 @@
 
 This is the file-by-file plan for the first coding phase. It prevents premature scaffolding and keeps the implementation aligned with the architecture.
 
-Phase 1 code begins with one verified technical smoke seed. This does not approve Phase 0: the 12-record catalog and pilot-citation gates remain open, and later phases remain prohibited until their gates pass.
+Phase 1 began with one verified technical smoke seed and now has an approved 12-record draft catalog. Phase 0 remains open: pilot-citation and reviewed-relation gates still prohibit later phases.
 
 ## Phase 1 implementation order
 
@@ -73,9 +73,15 @@ Implement only after the pipeline passes fixtures:
 Commands are deliberately small:
 
     fetch-portal
+    fetch-catalog
     validate-snapshot
+    report-snapshot
 
 Fetch accepts only a document ID already present in the approved catalog. It never accepts an arbitrary URL or bulk search phrase as an ingest target. Add `search-portal` only when the expansion phase needs portal discovery again; it is not needed for the frozen seed catalog.
+
+`fetch-catalog` runs every reviewed source in one catalog and reports individual failures without treating a partial draft manifest as a promoted snapshot.
+
+`report-snapshot` first validates raw hashes, receipts, parsed metadata, and exact catalog/manifest membership. Only then does it write deterministic source and hierarchy counts for the draft snapshot.
 
 ## Phase 2 implementation order
 

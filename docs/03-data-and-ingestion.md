@@ -121,7 +121,7 @@ reports/{run_id}.json
 - Raw bytes are immutable and deduplicated by SHA-256.
 - The raw receipt records the first UTC retrieval timestamp for that raw hash. Rebuilds reuse it; a run timestamp never mutates a parsed artifact.
 - Normalized text is reproducible from raw JSON, a normalizer version, and the versioned catalogued corrections. A correction preserves the raw bytes, states an HTTPS evidence URL and reason, and blocks ingestion if its literal match count changes.
-- Parsed documents store parser version and stable unit IDs.
+- Parsed documents store parser version and stable unit IDs. Version 2 preserves quoted amendment text within its outer unit instead of misclassifying the quoted target's headings, and stops the main hierarchy at `PHỤ LỤC`; appendix/form parsing is explicitly deferred.
 - A manifest contains only validated parsed artifacts; a raw fetch alone is not corpus membership.
 - Schema-invalid raw responses remain quarantined for drift diagnosis and are never exposed as search or QA evidence.
 - Quarantine is a run/manifest classification of the one immutable raw artifact, not a second copy of its bytes.
@@ -184,7 +184,7 @@ Failures record an error code, timestamp, and raw artifact when available. No pa
 
 ## Data quality report
 
-Every run reports catalog counts, fetch and schema failures, document/article/clause/point counts, orphan or duplicate units, `unknown` validity count, relation review status, manifest hash, and parser/normalizer/schema versions.
+The Phase 1 snapshot report records catalog hash/count, source GUID/status, raw hash, document/article/clause/point counts, unknown **source-status** count, manifest hash, and parser/normalizer versions. A failed batch prints its per-document errors and cannot be promoted; run-history storage, relation status, and legal-validity counts begin only when those artifacts exist in later phases.
 
 ## Non-structured content policy
 

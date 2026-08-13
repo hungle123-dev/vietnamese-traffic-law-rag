@@ -1,0 +1,121 @@
+{
+  "snapshot_id": "traffic-2026-08-13-v1",
+  "sources": [
+    {
+      "document_guid": "172475",
+      "expected_document_id": "35/2024/QH15",
+      "expected_title": "Luật Đường bộ số 35/2024/QH15",
+      "expected_public_url": "https://phapluat.gov.vn/legal-documents/172475?tabName=noidung",
+      "review_status": "approved"
+    },
+    {
+      "document_guid": "173920",
+      "expected_document_id": "168/2024/NĐ-CP",
+      "expected_title": "Nghị định số 168/2024/NĐ-CP Quy định xử phạt vi phạm hành chính về trật tự, an toàn giao thông trong lĩnh vực giao thông đường bộ; trừ điểm, phục hồi điểm giấy phép lái xe",
+      "expected_public_url": "https://phapluat.gov.vn/legal-documents/173920?tabName=noidung",
+      "review_status": "approved",
+      "reviewed_text_replacements": [
+        {
+          "find": "đ) Điều khiển xe gắn biển số không đúng với chứng nhận đăng ký xe hoặc gắn biển số không do cơ quan có thẩm quyền cấp (kể cả rơ moóc);",
+          "replace": "d) Điều khiển xe gắn biển số không đúng với chứng nhận đăng ký xe hoặc gắn biển số không do cơ quan có thẩm quyền cấp (kể cả rơ moóc);",
+          "expected_count": 1,
+          "evidence_url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/01/168-nd-cp.signed.pdf",
+          "reason": "Bản nội dung API ghi nhãn điểm là đ), trong khi bản ký số do Chính phủ công bố ghi d) trước điểm đ) của khoản 2 Điều 16."
+        },
+        {
+          "find": "đ) Sử dụng thiết bị, dụng cụ không đảm bảo theo quy định của pháp luật về đo lường để kiểm tra, thử nghiệm;",
+          "replace": "d) Sử dụng thiết bị, dụng cụ không đảm bảo theo quy định của pháp luật về đo lường để kiểm tra, thử nghiệm;",
+          "expected_count": 1,
+          "evidence_url": "https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2024/12/43733/54013-1-202577-78168-2024-nd-cp.pdf",
+          "reason": "Bản nội dung API ghi nhãn điểm là đ), trong khi Công báo Chính phủ ghi d) của khoản 3 Điều 40."
+        },
+        {
+          "find": "c) Lưu trữ hồ sơ, tài liệu, dữ liệu chứng nhận không đúng quy định.",
+          "replace": "e) Lưu trữ hồ sơ, tài liệu, dữ liệu chứng nhận không đúng quy định.",
+          "expected_count": 1,
+          "evidence_url": "https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2024/12/43733/54013-1-202577-78168-2024-nd-cp.pdf",
+          "reason": "Bản nội dung API ghi nhãn điểm là c), trong khi Công báo Chính phủ ghi e) của khoản 3 Điều 40."
+        }
+      ]
+    },
+    {
+      "document_guid": "f4b0c320-79e6-11f1-8c8a-3587e086d762",
+      "expected_document_id": "238/2026/NĐ-CP",
+      "expected_title": "Nghị định số 238/2026/NĐ-CP Sửa đổi, bổ sung một số điều của Nghị định số 168/2024/NĐ-CP ngày 26 tháng 12 năm 2024 của Chính phủ quy định xử phạt vi phạm hành chính về trật tự, an toàn giao thông trong lĩnh vực giao thông đường bộ; trừ điểm, phục hồi điểm giấy phép lái xe",
+      "expected_public_url": "https://phapluat.gov.vn/legal-documents/f4b0c320-79e6-11f1-8c8a-3587e086d762?tabName=noidung",
+      "review_status": "approved"
+    },
+    {
+      "document_guid": "185666",
+      "expected_document_id": "336/2025/NĐ-CP",
+      "expected_title": "Nghị định số 336/2025/NĐ-CP quy định xử phạt vi phạm hành chính trong hoạt động đường bộ.",
+      "expected_public_url": "https://phapluat.gov.vn/legal-documents/185666?tabName=noidung",
+      "review_status": "approved"
+    },
+    {
+      "document_guid": "173895",
+      "expected_document_id": "165/2024/NĐ-CP",
+      "expected_title": "Nghị định số 165/2024/NĐ-CP Quy định chi tiết, hướng dẫn thi hành một số điều của Luật Đường bộ và Điều 77 Luật Trật tự, an toàn giao thông đường bộ",
+      "expected_public_url": "https://phapluat.gov.vn/legal-documents/173895?tabName=noidung",
+      "review_status": "approved"
+    },
+    {
+      "document_guid": "aee9c160-8bc1-11f1-a232-057125fe017c",
+      "expected_document_id": "241/2026/NĐ-CP",
+      "expected_title": "Nghị định số 241/2026/NĐ-CP Sửa đổi, bổ sung một số điều của Nghị định số 165/2024/NĐ-CP ngày 26 tháng 12 năm 2024 của Chính phủ quy định chi tiết, hướng dẫn thi hành một số điều của Luật Đường bộ và và Điều 77 Luật Trật tự, an toàn giao thông đường bộ",
+      "expected_public_url": "https://phapluat.gov.vn/legal-documents/aee9c160-8bc1-11f1-a232-057125fe017c?tabName=noidung",
+      "review_status": "approved",
+      "reviewed_text_replacements": [
+        {
+          "find": "d) Tổ chức đám cưới;",
+          "replace": "đ) Tổ chức đám cưới;",
+          "expected_count": 1,
+          "evidence_url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/7/241-ndcp.signed.pdf",
+          "reason": "Bản nội dung API lặp nhãn d); bản ký số do Chính phủ công bố và bản toàn văn đối chiếu ghi điểm đ) sau điểm d) Tổ chức sự kiện tang lễ."
+        }
+      ]
+    },
+    {
+      "document_guid": "174961",
+      "expected_document_id": "151/2024/NĐ-CP",
+      "expected_title": "Nghị định số 151/2024/NĐ-CP Quy định chi tiết một số điều và biện pháp thi hành Luật Trật tự, an toàn giao thông đường bộ",
+      "expected_public_url": "https://phapluat.gov.vn/legal-documents/174961?tabName=noidung",
+      "review_status": "approved"
+    },
+    {
+      "document_guid": "224b21d0-7d9e-11f1-bb7a-69f7cf2f90db",
+      "expected_document_id": "236/2026/NĐ-CP",
+      "expected_title": "Nghị định số 236/2026/NĐ-CP Sửa đổi, bổ sung một số điều của Nghị định số 151/2024/NĐ-CP ngày 15 tháng 11 năm 2024 của Chính phủ quy định chi tiết một số điều và biện pháp thi hành Luật Trật tự, an toàn giao thông đường bộ được sửa đổi, bổ sung bởi Nghị định số 184/2025/NĐ-CP ngày 01 tháng 7 năm 2025 của Chính phủ",
+      "expected_public_url": "https://phapluat.gov.vn/legal-documents/224b21d0-7d9e-11f1-bb7a-69f7cf2f90db?tabName=noidung",
+      "review_status": "approved"
+    },
+    {
+      "document_guid": "173412",
+      "expected_document_id": "158/2024/NĐ-CP",
+      "expected_title": "Nghị định số 158/2024/NĐ-CP Quy định về hoạt động vận tải đường bộ",
+      "expected_public_url": "https://phapluat.gov.vn/legal-documents/173412?tabName=noidung",
+      "review_status": "approved"
+    },
+    {
+      "document_guid": "8a3f0c20-8bc2-11f1-b860-ff58e2a2eb18",
+      "expected_document_id": "218/2026/NĐ-CP",
+      "expected_title": "Nghị định số 218/2026/NĐ-CP Sửa đổi, bổ sung một số điều của Nghị định số 158/2024/NĐ-CP ngày 18 tháng 12 năm 2024 của Chính phủ quy định về hoạt động vận tải đường bộ",
+      "expected_public_url": "https://phapluat.gov.vn/legal-documents/8a3f0c20-8bc2-11f1-b860-ff58e2a2eb18?tabName=noidung",
+      "review_status": "approved"
+    },
+    {
+      "document_guid": "175618",
+      "expected_document_id": "12/2025/TT-BCA",
+      "expected_title": "Thông tư số 12/2025/TT-BCA Quy định về sát hạch, cấp giấy phép lái xe; cấp, sử dụng giấy phép lái xe quốc tế",
+      "expected_public_url": "https://phapluat.gov.vn/legal-documents/175618?tabName=noidung",
+      "review_status": "approved"
+    },
+    {
+      "document_guid": "6423e210-7ffe-11f1-a6e4-33cf5e12fa5a",
+      "expected_document_id": "108/2026/TT-BCA",
+      "expected_title": "Thông tư số 108/2026/TT-BCA Quy định về sát hạch, cấp giấy phép lái xe; cấp, sử dụng giấy phép lái xe quốc tế",
+      "expected_public_url": "https://phapluat.gov.vn/legal-documents/6423e210-7ffe-11f1-a6e4-33cf5e12fa5a?tabName=noidung",
+      "review_status": "approved"
+    }
+  ]
+}

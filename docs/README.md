@@ -19,7 +19,7 @@
 | 12 | [Roadmap](12-roadmap.md) | Gate theo phase |
 | 13 | [Acceptance criteria](13-acceptance-criteria.md) | Điều kiện hoàn thành v1 |
 | 14 | [Implementation blueprint](14-implementation-blueprint.md) | Thứ tự file/module khi bắt đầu code |
-| 15 | [Candidate seed catalog](15-candidate-seed-catalog.md) | Danh sách pilot độc lập, chờ duyệt trước khi tạo data |
+| 15 | [Pilot seed catalog](15-pilot-seed-catalog.md) | Danh sách pilot đã duyệt cho draft snapshot; chưa phải graph corpus |
 
 ## Non-negotiable decisions
 

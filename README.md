@@ -4,7 +4,7 @@ Blueprint cho một sản phẩm tra cứu và hỏi đáp pháp luật giao th�
 
 ## Trạng thái
 
-Phase 1 đang triển khai ingestion foundation cho một seed đã duyệt. Blueprint vẫn là nguồn quyết định; source hiện chỉ có portal contract, deterministic normalization/parser, artifact storage và curator CLI. Chưa có graph, retrieval, LLM hay UI.
+Phase 1 đã tạo và kiểm tra một **draft snapshot 12 văn bản**: raw immutable, normalized text, parsed hierarchy, manifest và quality report. Blueprint vẫn là nguồn quyết định; source chưa có graph, retrieval, LLM hay UI. Snapshot chưa được "promote" vì 30 gold questions và relation-evidence vẫn chưa tồn tại.
 
 ## Product đã chốt
 
@@ -29,7 +29,12 @@ uv run pytest tests/unit
 uv run traffic-legal-qa fetch-portal `
   --catalog data/catalog/smoke-168-2024-nd-cp.json `
   --document-id "168/2024/NĐ-CP"
+uv run traffic-legal-qa fetch-catalog `
+  --catalog data/catalog/pilot-traffic-2026-08-13-v1.json
 uv run traffic-legal-qa validate-snapshot --snapshot-id traffic-2026-08-13-v1
+uv run traffic-legal-qa report-snapshot `
+  --snapshot-id traffic-2026-08-13-v1 `
+  --catalog data/catalog/pilot-traffic-2026-08-13-v1.json
 ```
 
-Raw response và parsed artifacts sinh ra trong `data/` được `.gitignore`; catalog seed được version-control.
+Raw response, parsed artifacts và report sinh ra trong `data/` được `.gitignore`; catalog được version-control.
