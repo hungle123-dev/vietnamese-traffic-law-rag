@@ -114,6 +114,7 @@ This yields one foundation law, five distinct question families, and four explic
 |---|---|---|
 | Detail-source contract | 12/12 passed HTTP `200`, `success == true`, exact identifier, non-empty title, and non-empty HTML. | Re-run before each future snapshot; portal API is not a stable developer contract. |
 | Graph-ready portal metadata | Parsed artifact v2 has document type, effect status, organ, and signer on 12/12 documents; field on 11/12 and major on 8/12. | This supports only deterministic metadata nodes; it does not create legal-change relations. |
+| Structural graph projection | Local Neo4j verification reconciled 12 documents, 6,433 hierarchy nodes, 6,445 snapshot-membership edges, and 6,433 `HAS_*` edges; a second MERGE import preserved the counts. | `AMENDS` is still zero; no retrieval, vector index, or QA claim follows from this structural graph. |
 | Public portal route | 12/12 public URLs are recorded and returned HTTP `200`. The route was read from the portal's own frontend code. | The page is client-rendered and the portal WAF blocks headless rendering, so API identity remains the automated evidence. |
 | Amendment evidence | A precise Article-1 source provision and target-unit presence are located for each of the four amendment chains. | These are candidate inputs, not approved relation records or temporal QA evidence. |
 | Scope and safety | `238/2026/NĐ-CP` is explicitly marked not effective until 2026-08-15. | No current-law answer may apply it before that date. |

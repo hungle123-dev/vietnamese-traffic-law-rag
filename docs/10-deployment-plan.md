@@ -31,6 +31,8 @@ flowchart TB
 
 Docker Compose is sufficient once API, graph, and UI exist. A cluster orchestrator is not a v1 requirement.
 
+Phase 2A provides `compose.yaml` with a loopback-only Neo4j Community `5.26.28` container, Bolt on `7687`, Browser on `7474`, and a `cypher-shell` health check. Set `NEO4J_PASSWORD` in the process environment; it is required by Compose and the graph CLI, and `.env` is ignored. The graph is rebuilt from parsed artifacts, so no Neo4j database volume is committed.
+
 ## Responsibilities
 
 - API: read-only QA/search path, health/readiness, input boundary, rate limits.

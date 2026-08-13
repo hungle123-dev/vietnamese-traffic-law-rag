@@ -28,10 +28,6 @@ Every node and relationship must trace to a reviewed parsed artifact and source 
     document_type
     portal_document_type
     issuer
-    fields
-    majors
-    issuing_organs
-    signers
     issued_date
     effective_from
     effective_to
@@ -41,6 +37,8 @@ Every node and relationship must trace to a reviewed parsed artifact and source 
     snapshot_id
 
 `document_key` is `${snapshot_id}::${document_id}`. It is the graph identity; `document_id` remains the stable public legal identifier.
+
+Topics, issuing organizations, and signers are represented by their metadata relationships instead of duplicated list/map properties on `Document`; their original portal values remain in the parsed artifact and raw response.
 
 ### Legal hierarchy properties
 
@@ -126,6 +124,12 @@ The public API never accepts arbitrary Cypher or LLM-generated graph queries.
 - Every public cross-document relation has provenance and review status.
 - Every `AMENDS` edge has the approved relation artifact's evidence and review properties.
 - Every citation resolves as `(active_snapshot_id, unit_id)`.
+
+## Phase 2A implementation evidence
+
+`graph/importer.py` accepts only the same validated parsed snapshot used by the ingestion CLI. It creates 13 Neo4j uniqueness constraints, MERGEs nodes and structural edges, then runs `verify-graph`; a count mismatch makes the command fail. The verified `traffic-2026-08-13-v1` graph contains 12 `Document`, 6,433 hierarchy nodes, 6,445 `IN_SNAPSHOT` edges, and 6,433 `HAS_*` edges. The count is intentionally `12 + 6,433` for snapshot membership; metadata edges are separate. Re-running the import produced the same counts.
+
+This phase imports no `AMENDS`, `RELATED_TO`, lexical/vector index, or retrieval artifact. `AMENDS` remains zero until the reviewed relation artifact exists.
 
 ## Deferred complexity
 

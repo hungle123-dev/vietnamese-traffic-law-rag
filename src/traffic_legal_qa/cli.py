@@ -10,8 +10,11 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from neo4j import GraphDatabase
+from neo4j.exceptions import DriverError, Neo4jError
 from pydantic import ValidationError
 
+from traffic_legal_qa.graph.importer import GraphImportError, GraphSnapshotImporter, expected_counts
 from traffic_legal_qa.ingestion.models import ParsedDocument, ReviewedSource
 from traffic_legal_qa.ingestion.pipeline import IngestionPipeline
 from traffic_legal_qa.ingestion.portal import PortalClient, PortalError
@@ -278,6 +281,76 @@ def validate_snapshot(
         raise typer.BadParameter(f"invalid snapshot: {snapshot_id}") from exc
 
     typer.echo(json.dumps({"snapshot_id": snapshot_id, "document_count": len(documents)}))
+
+
+@app.command("import-graph")
+def import_graph(
+    snapshot_id: Annotated[str, typer.Option(help="Validated draft snapshot identifier.")],
+    neo4j_password: Annotated[
+        str,
+        typer.Option(envvar="NEO4J_PASSWORD", help="Neo4j password; prefer NEO4J_PASSWORD."),
+    ],
+    data_root: Annotated[Path, typer.Option(help="Artifact root.")] = Path("data"),
+    neo4j_uri: Annotated[str, typer.Option(help="Bolt URI.")] = "bolt://localhost:7687",
+    neo4j_username: Annotated[str, typer.Option(help="Neo4j username.")] = "neo4j",
+    neo4j_database: Annotated[str, typer.Option(help="Neo4j database.")] = "neo4j",
+) -> None:
+    """Project one validated snapshot's hierarchy and portal metadata into Neo4j."""
+
+    try:
+        documents = [parsed for _, parsed in _validated_snapshot(snapshot_id, data_root)]
+        with GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password)) as driver:
+            driver.verify_connectivity()
+            verification = GraphSnapshotImporter(driver, database=neo4j_database).import_snapshot(
+                snapshot_id, documents
+            )
+    except (
+        DriverError,
+        GraphImportError,
+        Neo4jError,
+        OSError,
+        ValueError,
+        json.JSONDecodeError,
+        ValidationError,
+    ) as exc:
+        raise typer.BadParameter(f"cannot import graph: {snapshot_id}") from exc
+    typer.echo(json.dumps(verification.model_dump(), ensure_ascii=False))
+
+
+@app.command("verify-graph")
+def verify_graph(
+    snapshot_id: Annotated[str, typer.Option(help="Validated draft snapshot identifier.")],
+    neo4j_password: Annotated[
+        str,
+        typer.Option(envvar="NEO4J_PASSWORD", help="Neo4j password; prefer NEO4J_PASSWORD."),
+    ],
+    data_root: Annotated[Path, typer.Option(help="Artifact root.")] = Path("data"),
+    neo4j_uri: Annotated[str, typer.Option(help="Bolt URI.")] = "bolt://localhost:7687",
+    neo4j_username: Annotated[str, typer.Option(help="Neo4j username.")] = "neo4j",
+    neo4j_database: Annotated[str, typer.Option(help="Neo4j database.")] = "neo4j",
+) -> None:
+    """Reconcile Neo4j's structural graph with the validated snapshot artifacts."""
+
+    try:
+        documents = [parsed for _, parsed in _validated_snapshot(snapshot_id, data_root)]
+        with GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password)) as driver:
+            driver.verify_connectivity()
+            verification = GraphSnapshotImporter(driver, database=neo4j_database).verify_snapshot(
+                snapshot_id, expected_counts(documents)
+            )
+    except (
+        DriverError,
+        GraphImportError,
+        Neo4jError,
+        OSError,
+        ValueError,
+        json.JSONDecodeError,
+        ValidationError,
+    ) as exc:
+        raise typer.BadParameter(f"cannot verify graph: {snapshot_id}") from exc
+    typer.echo(json.dumps(verification.model_dump(), ensure_ascii=False))
+    if not verification.is_valid:
+        raise typer.Exit(code=1)
 
 
 @app.command("report-snapshot")

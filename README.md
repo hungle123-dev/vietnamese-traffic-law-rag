@@ -4,7 +4,7 @@ Blueprint cho một sản phẩm tra cứu và hỏi đáp pháp luật giao th�
 
 ## Trạng thái
 
-Code hiện có là nền ingestion cho **draft snapshot 12 văn bản**: raw immutable, normalized text, parsed hierarchy, manifest, quality report và metadata graph-ready từ portal. Blueprint là target đầy đủ gồm graph, hybrid retrieval, rerank, generation có citation, cache và monitoring; các lớp đó chưa được scaffold giả tạo trước phase của chúng. Snapshot chỉ được promote sau khi graph/index và evaluation gate có bằng chứng; gold questions đo retrieval, không chặn import cấu trúc graph.
+Code hiện có gồm ingestion và **structural Neo4j graph** cho draft snapshot 12 văn bản: raw immutable, normalized text, parsed hierarchy, manifest, quality report, metadata portal, node/edge graph và reconciliation command. Blueprint còn hybrid retrieval, rerank, generation có citation, cache và monitoring; các lớp đó chưa được scaffold giả tạo trước phase của chúng. Snapshot chưa được promote: chưa có index/evaluation gate, gold questions hay approved `AMENDS` records.
 
 ## Product đã chốt
 
@@ -38,6 +38,11 @@ uv run traffic-legal-qa validate-snapshot --snapshot-id traffic-2026-08-13-v1
 uv run traffic-legal-qa report-snapshot `
   --snapshot-id traffic-2026-08-13-v1 `
   --catalog data/catalog/pilot-traffic-2026-08-13-v1.json
+
+$env:NEO4J_PASSWORD = Read-Host "Neo4j password"
+docker compose up --detach --wait
+uv run traffic-legal-qa import-graph --snapshot-id traffic-2026-08-13-v1
+uv run traffic-legal-qa verify-graph --snapshot-id traffic-2026-08-13-v1
 ```
 
 Raw response, parsed artifacts và report sinh ra trong `data/` được `.gitignore`; catalog được version-control.

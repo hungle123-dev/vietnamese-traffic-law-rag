@@ -102,6 +102,15 @@ Add the Neo4j driver and embedding dependencies only at this phase. Build lexica
 
 Import deterministic hierarchy as explicit `Part`, `Chapter`, `Section`, `Article`, `Clause`, and `Point` labels first; then attach actual portal metadata (`DocumentType`, `EffectStatus`, `Field`, `Organization`, `Signer`). Import only approved `AMENDS` records from `relations/{snapshot_id}.json`; their `amendment_type`, evidence unit, raw hash, and review properties are mandatory. A relation candidate, portal hint, or unresolved source/target must fail the relation import rather than create a public legal edge.
 
+### Phase 2A delivered: structural graph only
+
+    compose.yaml
+    graph/importer.py
+    cli.py: import-graph, verify-graph
+    tests/unit/test_graph_importer.py
+
+The importer reuses `_validated_snapshot`, so no raw/manifest/parsed integrity check is duplicated or bypassed. It creates constraints, imports only `Document`, portal metadata, `Snapshot`, and hierarchy labels/edges, then reconciles actual Neo4j counts with the parsed artifact. `AMENDS`, retrieval, embedding, and index code are intentionally absent.
+
 ## Phase 3 implementation order
 
 Only after R0–R2 establish a retrieval configuration, add:

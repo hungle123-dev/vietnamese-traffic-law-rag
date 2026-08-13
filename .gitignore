@@ -1,4 +1,5 @@
 .venv/
+.env
 .serena/
 __pycache__/
 *.py[cod]
