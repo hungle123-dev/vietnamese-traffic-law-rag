@@ -166,6 +166,7 @@ def test_exact_lookup_precedes_fulltext_and_keeps_its_lexical_rank() -> None:
     assert any(
         isinstance(fulltext_query := parameters.get("fulltext_query"), str)
         and 'snapshot_id:"traffic-2026-08-13-v1"' in fulltext_query
+        and 'document_id:"168/2024/NĐ-CP"' in fulltext_query
         for parameters in driver.parameters
     )
 

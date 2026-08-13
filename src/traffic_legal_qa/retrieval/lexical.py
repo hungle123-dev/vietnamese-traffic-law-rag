@@ -154,7 +154,7 @@ class Neo4jLexicalRetriever:
         candidates_by_id = {candidate.unit_id: candidate for candidate in exact_candidates}
         lexical_candidates = self._search_fulltext(
             snapshot_id,
-            _fulltext_query(normalized_query, snapshot_id),
+            _fulltext_query(normalized_query, snapshot_id, document_ids),
             document_ids,
             top_k * 3,
         )
@@ -355,13 +355,22 @@ def _exact_unit_ids(
     )
 
 
-def _fulltext_query(normalized_query: str, snapshot_id: str) -> str:
+def _fulltext_query(normalized_query: str, snapshot_id: str, document_ids: tuple[str, ...]) -> str:
     tokens = tuple(dict.fromkeys(token.casefold() for token in _TOKEN.findall(normalized_query)))
     if not tokens:
         raise LexicalIndexError("query has no searchable tokens")
     terms = " OR ".join(f'"{token}"' for token in tokens)
-    escaped_snapshot = snapshot_id.replace("\\", "\\\\").replace('"', '\\"')
-    return f'snapshot_id:"{escaped_snapshot}" AND ({terms})'
+    scopes = [f"snapshot_id:{_lucene_phrase(snapshot_id)}"]
+    if document_ids:
+        document_scopes = " OR ".join(
+            f"document_id:{_lucene_phrase(document_id)}" for document_id in document_ids
+        )
+        scopes.append(f"({document_scopes})")
+    return f"{' AND '.join(scopes)} AND ({terms})"
+
+
+def _lucene_phrase(value: str) -> str:
+    return f'"{value.replace("\\", "\\\\").replace(chr(34), r"\"")}"'
 
 
 def _fold(value: str) -> str:
