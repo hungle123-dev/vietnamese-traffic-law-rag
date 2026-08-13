@@ -20,7 +20,7 @@ Each question stores:
     difficulty
     review_status
 
-The initial artifact is [traffic-2026-08-13-v1.source-verified.json](../data/gold/traffic-2026-08-13-v1.source-verified.json): 30 retrieval-only questions, split 15 dev / 15 test. `validate-gold-set` resolves every gold document/unit ID through the validated snapshot before any retrieval score is reported. Its status is deliberately `source_verified`, not legal-expert approval: it is valid ground truth for citation retrieval, but cannot by itself support temporal, amendment, or answer-quality claims.
+The initial artifact is [traffic-2026-08-13-v1.source-verified.json](../data/gold/traffic-2026-08-13-v1.source-verified.json): 30 retrieval-only questions, split 15 dev / 15 test. `validate-gold-set` resolves every gold document/unit ID through the validated snapshot before any retrieval score is reported. Its status is deliberately `source_verified`, not legal-expert approval: it is valid ground truth for citation retrieval, but cannot by itself support temporal, amendment, or answer-quality claims. Every initial question type appears in the held-out split, but one-item categories are illustrative only; do not publish per-type retrieval claims until the reviewed set is expanded.
 
 Question taxonomy includes definitions, obligations, prohibitions, penalties, procedures, temporal validity, comparisons, multi-document questions, ambiguity, and out-of-domain cases.
 

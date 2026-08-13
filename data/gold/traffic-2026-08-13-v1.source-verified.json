@@ -119,8 +119,11 @@
       "split": "dev",
       "effective_at": "2026-08-13",
       "gold_document_ids": ["168/2024/NĐ-CP"],
-      "gold_unit_ids": ["168/2024/NĐ-CP::article::3::clause::1::point::a"],
-      "reviewer_notes": "Direct provision selected from the frozen parsed snapshot; retrieval label only.",
+      "gold_unit_ids": [
+        "168/2024/NĐ-CP::article::3::clause::1",
+        "168/2024/NĐ-CP::article::3::clause::1::point::a"
+      ],
+      "reviewer_notes": "Clause supplies the sanction context; point supplies the cited form. Retrieval label only.",
       "review_status": "source_verified"
     },
     {
@@ -197,14 +200,17 @@
     },
     {
       "question_id": "traffic-2026-08-13-v1::q017",
-      "question": "Hành vi tự ý chuyển thẻ đầu cuối từ phương tiện này sang phương tiện khác được quy định ở đâu?",
-      "question_type": "penalty",
+      "question": "Có được tự ý chuyển thẻ đầu cuối từ phương tiện này sang phương tiện khác không?",
+      "question_type": "prohibition",
       "difficulty": "medium",
       "split": "test",
       "effective_at": "2026-08-13",
       "gold_document_ids": ["336/2025/NĐ-CP"],
-      "gold_unit_ids": ["336/2025/NĐ-CP::article::10::clause::1::point::a"],
-      "reviewer_notes": "Direct provision selected from the frozen parsed snapshot; retrieval label only.",
+      "gold_unit_ids": [
+        "336/2025/NĐ-CP::article::10::clause::1",
+        "336/2025/NĐ-CP::article::10::clause::1::point::a"
+      ],
+      "reviewer_notes": "Clause supplies the sanction context; point identifies the prohibited conduct. Retrieval label only.",
       "review_status": "source_verified"
     },
     {
@@ -257,13 +263,13 @@
     },
     {
       "question_id": "traffic-2026-08-13-v1::q022",
-      "question": "Theo Nghị định 236/2026/NĐ-CP, lực lượng nào quản lý, vận hành và khai thác cơ sở dữ liệu về trật tự, an toàn giao thông đường bộ?",
-      "question_type": "obligation",
+      "question": "Sau khi nhận đủ hồ sơ, cơ quan cấp phép có bao lâu để cấp mới giấy phép sử dụng thiết bị phát tín hiệu của xe ưu tiên?",
+      "question_type": "procedure",
       "difficulty": "medium",
       "split": "test",
       "effective_at": "2026-08-13",
       "gold_document_ids": ["236/2026/NĐ-CP"],
-      "gold_unit_ids": ["236/2026/NĐ-CP::article::1"],
+      "gold_unit_ids": ["236/2026/NĐ-CP::article::8::point::c"],
       "reviewer_notes": "Amendment-source text is a retrieval target only; no validity conclusion is labeled.",
       "review_status": "source_verified"
     },
@@ -353,7 +359,7 @@
     },
     {
       "question_id": "traffic-2026-08-13-v1::q030",
-      "question": "Hồ sơ đề nghị sát hạch do cơ sở đào tạo lái xe nộp gồm những thành phần cấp cơ sở nào?",
+      "question": "Hồ sơ đề nghị sát hạch do cơ sở đào tạo lái xe nộp gồm những thành phần nào?",
       "question_type": "procedure",
       "difficulty": "medium",
       "split": "test",
