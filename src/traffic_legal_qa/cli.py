@@ -99,6 +99,16 @@ def validate_snapshot(
             parsed = ParsedDocument.model_validate_json(parsed_path.read_text(encoding="utf-8"))
             if parsed.metadata.document_id != document_id:
                 raise ValueError(f"parsed document mismatch: {document_id}")
+            if parsed.metadata.portal_document_guid != document["portal_document_guid"]:
+                raise ValueError(f"parsed portal GUID mismatch: {document_id}")
+            if parsed.metadata.content_sha256 != raw_hash:
+                raise ValueError(f"parsed raw hash mismatch: {document_id}")
+            if parsed.metadata.snapshot_id != snapshot_id:
+                raise ValueError(f"parsed snapshot mismatch: {document_id}")
+            if parsed.normalizer_version != document["normalizer_version"]:
+                raise ValueError(f"parsed normalizer version mismatch: {document_id}")
+            if parsed.parser_version != document["parser_version"]:
+                raise ValueError(f"parsed parser version mismatch: {document_id}")
     except (KeyError, TypeError, ValueError, OSError, json.JSONDecodeError, ValidationError) as exc:
         raise typer.BadParameter(f"invalid snapshot: {snapshot_id}") from exc
 

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import TypedDict
 from urllib.parse import quote
@@ -25,17 +27,32 @@ class _Manifest(TypedDict):
     documents: list[_ManifestDocument]
 
 
+@dataclass(frozen=True)
+class RawArtifact:
+    path: Path
+    retrieved_at: datetime
+
+
 class ArtifactStore:
     """Keeps raw, derived, and manifest artifacts separate under one data root."""
 
     def __init__(self, root: Path) -> None:
         self._root = root
 
-    def store_raw(self, raw_bytes: bytes) -> Path:
+    def store_raw(self, raw_bytes: bytes, retrieved_at: datetime) -> RawArtifact:
+        if retrieved_at.tzinfo is None:
+            raise ValueError("retrieved_at must include a timezone")
         digest = hashlib.sha256(raw_bytes).hexdigest()
         path = self._root / "raw" / f"{digest}.json"
         self._write_once(path, raw_bytes)
-        return path
+        receipt_path = self._root / "receipts" / f"{digest}.json"
+        if not receipt_path.exists():
+            self._write_json(
+                receipt_path,
+                {"content_sha256": digest, "retrieved_at": retrieved_at.isoformat()},
+            )
+        receipt = self._read_receipt(receipt_path, digest)
+        return RawArtifact(path=path, retrieved_at=receipt)
 
     def store_normalized(self, content_sha256: str, text: str) -> Path:
         path = self._root / "normalized" / f"{content_sha256}.txt"
@@ -123,6 +140,19 @@ class ArtifactStore:
                 }
             )
         return {"snapshot_id": snapshot_id, "documents": documents}
+
+    @staticmethod
+    def _read_receipt(path: Path, content_sha256: str) -> datetime:
+        loaded: object = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(loaded, dict) or loaded.get("content_sha256") != content_sha256:
+            raise ValueError(f"raw receipt is invalid: {path}")
+        received_at = loaded.get("retrieved_at")
+        if not isinstance(received_at, str):
+            raise ValueError(f"raw receipt is missing retrieved_at: {path}")
+        parsed = datetime.fromisoformat(received_at)
+        if parsed.tzinfo is None:
+            raise ValueError(f"raw receipt has a naive timestamp: {path}")
+        return parsed
 
     @staticmethod
     def _write_json(path: Path, payload: object) -> None:

@@ -36,3 +36,8 @@ def test_pipeline_keeps_raw_and_promotes_only_a_validated_hierarchy(tmp_path: Pa
     assert result.unit_count == 2
     manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
     assert manifest["documents"][0]["document_id"] == "168/2024/NĐ-CP"
+    first_parsed_bytes = result.parsed_path.read_bytes()
+
+    rebuilt = pipeline.ingest(source())
+
+    assert rebuilt.parsed_path.read_bytes() == first_parsed_bytes

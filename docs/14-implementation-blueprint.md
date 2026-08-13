@@ -52,6 +52,7 @@ Order inside pipeline:
 
     fetch response
     → store raw JSON in quarantine
+    → record immutable raw receipt
     → validate schema
     → normalize HTML
     → apply reviewed exact-count corrections

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 from traffic_legal_qa.ingestion.models import ReviewedSource
@@ -36,8 +37,8 @@ class IngestionPipeline:
 
     def ingest(self, source: ReviewedSource) -> IngestionResult:
         raw_bytes = self._fetch_raw(source)
-        raw_path = self._store.store_raw(raw_bytes)
-        detail = parse_detail_response(raw_bytes, source)
+        raw_artifact = self._store.store_raw(raw_bytes, datetime.now(UTC))
+        detail = parse_detail_response(raw_bytes, source, retrieved_at=raw_artifact.retrieved_at)
         if not detail.title_matches_expected:
             raise PortalTitleMismatch("portal title differs from reviewed catalog entry")
         normalized_text = apply_reviewed_replacements(
@@ -51,7 +52,7 @@ class IngestionPipeline:
         parsed_path = self._store.write_parsed(parsed)
         manifest_path = self._store.update_manifest(parsed, parsed_path)
         return IngestionResult(
-            raw_path=raw_path,
+            raw_path=raw_artifact.path,
             normalized_path=normalized_path,
             parsed_path=parsed_path,
             manifest_path=manifest_path,

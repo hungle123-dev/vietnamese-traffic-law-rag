@@ -110,6 +110,7 @@ A title mismatch after whitespace normalization is held for curator review; it i
 
 ```text
 raw/{sha256}.json
+receipts/{sha256}.json
 normalized/{sha256}.txt
 parsed/{document_id}__{snapshot_id}.json
 relations/{snapshot_id}.json
@@ -118,6 +119,7 @@ reports/{run_id}.json
 ```
 
 - Raw bytes are immutable and deduplicated by SHA-256.
+- The raw receipt records the first UTC retrieval timestamp for that raw hash. Rebuilds reuse it; a run timestamp never mutates a parsed artifact.
 - Normalized text is reproducible from raw JSON, a normalizer version, and the versioned catalogued corrections. A correction preserves the raw bytes, states an HTTPS evidence URL and reason, and blocks ingestion if its literal match count changes.
 - Parsed documents store parser version and stable unit IDs.
 - A manifest contains only validated parsed artifacts; a raw fetch alone is not corpus membership.
