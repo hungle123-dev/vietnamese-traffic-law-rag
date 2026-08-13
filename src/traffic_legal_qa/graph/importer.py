@@ -9,6 +9,11 @@ from typing import Final
 from neo4j import Driver
 
 from traffic_legal_qa.ingestion.models import LegalUnit, ParsedDocument, UnitType
+from traffic_legal_qa.ingestion.relations import (
+    ApprovedRelation,
+    RelationEndpoint,
+    validate_approved_relations,
+)
 
 _UNIT_LABELS: Final[dict[UnitType, str]] = {
     "part": "Part",
@@ -74,8 +79,10 @@ class GraphVerification:
         }
 
 
-def expected_counts(documents: list[ParsedDocument]) -> GraphCounts:
-    """Derive the only graph counts Phase 2A is allowed to create."""
+def expected_counts(
+    documents: list[ParsedDocument], relations: tuple[ApprovedRelation, ...] = ()
+) -> GraphCounts:
+    """Derive graph counts from one validated snapshot and resolved relations."""
 
     _validate_documents(documents)
     unit_counts = Counter(unit.unit_type for document in documents for unit in document.units)
@@ -126,6 +133,7 @@ def expected_counts(documents: list[ParsedDocument]) -> GraphCounts:
             _HIERARCHY_RELATIONSHIPS[unit_type]: unit_counts[unit_type]
             for unit_type in _UNIT_LABELS
         },
+        "AMENDS": len(relations),
     }
     return GraphCounts(node_counts=node_counts, relationship_counts=relationship_counts)
 
@@ -140,12 +148,16 @@ class GraphSnapshotImporter:
         self._database = database
 
     def import_snapshot(
-        self, snapshot_id: str, documents: list[ParsedDocument]
+        self,
+        snapshot_id: str,
+        documents: list[ParsedDocument],
+        relations: tuple[ApprovedRelation, ...] = (),
     ) -> GraphVerification:
         """MERGE the structural graph, then reject any count mismatch immediately."""
 
         _validate_documents(documents, snapshot_id)
-        expected = expected_counts(documents)
+        validate_approved_relations(relations, documents)
+        expected = expected_counts(documents, relations)
         self._create_constraints()
         # ponytail: resumable MERGE batches are safe before snapshot promotion; use one transaction
         # only when an active-snapshot pointer could expose a partial import.
@@ -154,6 +166,7 @@ class GraphSnapshotImporter:
         self._write_metadata(documents)
         self._write_units(snapshot_id, documents)
         self._write_hierarchy(snapshot_id, documents)
+        self._write_amends(snapshot_id, relations)
         verification = self.verify_snapshot(snapshot_id, expected)
         if not verification.is_valid:
             raise GraphImportError(f"graph count mismatch: {verification.model_dump()}")
@@ -295,6 +308,21 @@ class GraphSnapshotImporter:
                     snapshot_id=snapshot_id,
                 )
 
+    def _write_amends(self, snapshot_id: str, relations: tuple[ApprovedRelation, ...]) -> None:
+        if not relations:
+            return
+        # ponytail: curator-sized relation batches can match either endpoint kind in one query;
+        # partition by label only if measured relation-import time becomes material.
+        rows = [_relation_row(snapshot_id, relation) for relation in relations]
+        self._execute(
+            "UNWIND $rows AS row "
+            "MATCH (source) WHERE coalesce(source.unit_key, source.document_key) = row.source_key "
+            "MATCH (target) WHERE coalesce(target.unit_key, target.document_key) = row.target_key "
+            "MERGE (source)-[relation:AMENDS {relation_id: row.relation_id}]->(target) "
+            "SET relation += row.properties",
+            rows=rows,
+        )
+
     def _node_count(self, snapshot_id: str, label: str) -> int:
         if label == "Snapshot":
             query = "MATCH (node:Snapshot {snapshot_id: $snapshot_id}) RETURN count(node) AS count"
@@ -327,6 +355,14 @@ class GraphSnapshotImporter:
         elif relationship in _METADATA_RELATIONSHIPS.values():
             query = (
                 f"MATCH (:Document {{snapshot_id: $snapshot_id}})-[relation:{relationship}]->() "
+                "RETURN count(relation) AS count"
+            )
+        elif relationship == "AMENDS":
+            relationship_pattern = "-[relation]->" if use_dynamic_type else "-[relation:AMENDS]->"
+            type_filter = "WHERE type(relation) = $relationship " if use_dynamic_type else ""
+            query = (
+                f"MATCH (source {{snapshot_id: $snapshot_id}}){relationship_pattern}"
+                f"(target {{snapshot_id: $snapshot_id}}) {type_filter}"
                 "RETURN count(relation) AS count"
             )
         else:
@@ -436,6 +472,34 @@ def _unit_row(document: ParsedDocument, unit: LegalUnit) -> dict[str, object]:
             "snapshot_id": document.metadata.snapshot_id,
         },
     }
+
+
+def _relation_row(snapshot_id: str, relation: ApprovedRelation) -> dict[str, object]:
+    properties: dict[str, object] = {
+        "relation_id": relation.relation_id,
+        "amendment_type": relation.amendment_type,
+        "evidence_unit_id": relation.evidence_unit_id,
+        "source_url": relation.source_url,
+        "raw_sha256": relation.raw_sha256,
+        "provenance": relation.provenance,
+        "review_status": relation.review_status,
+        "reviewed_by": relation.reviewed_by,
+        "reviewed_at": relation.reviewed_at.isoformat(),
+        "snapshot_id": snapshot_id,
+    }
+    if relation.note is not None:
+        properties["note"] = relation.note
+    return {
+        "relation_id": relation.relation_id,
+        "source_key": _endpoint_key(snapshot_id, relation.source),
+        "target_key": _endpoint_key(snapshot_id, relation.target),
+        "properties": properties,
+    }
+
+
+def _endpoint_key(snapshot_id: str, endpoint: RelationEndpoint) -> str:
+    identifier = endpoint.unit_id or endpoint.document_id
+    return f"{snapshot_id}::{identifier}"
 
 
 def _document_type_rows(documents: list[ParsedDocument]) -> list[dict[str, object]]:

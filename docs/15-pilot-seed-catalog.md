@@ -69,14 +69,14 @@ The technical verification above is separate from legal-relation approval. Curat
 
 ## Candidate relations, not graph edges
 
-The following are title-supported **document-level candidates** only. They must remain outside `relations/{snapshot_id}.json` until a reviewer identifies the source and target provisions, saves the evidence unit, and approves the relation under the contract in [03-data-and-ingestion.md](03-data-and-ingestion.md).
+The following are **unapproved evidence candidates**. They remain outside `relations/{snapshot_id}.json` until a reviewer approves the exact mapping under the contract in [03-data-and-ingestion.md](03-data-and-ingestion.md), including reviewer identity, source hash, source URL, and evidence locator.
 
 | Candidate | Seed-level provision evidence | What it does **not** establish yet | State |
 |---|---|---|---|
-| `238/2026/NĐ-CP → 168/2024/NĐ-CP` | Source Article 1 changes points of clause 3, Article 3; target Article 3 and clause 3 exist in `168`. | The complete set of amended provisions and their final validity. | `seed_evidence_located` |
-| `241/2026/NĐ-CP → 165/2024/NĐ-CP` | Source Article 1 changes Article 4; target Article 4 exists in `165`. | The complete set of amended provisions and their final validity. | `seed_evidence_located` |
-| `236/2026/NĐ-CP → 151/2024/NĐ-CP` | Source Article 1 changes clause 1, Article 9; target Article 9 and clause 1 exist in `151`. | The complete set of amended provisions and the role of `184/2025/NĐ-CP` in each target provision. | `seed_evidence_located` |
-| `218/2026/NĐ-CP → 158/2024/NĐ-CP` | Source Article 1 changes point a, clause 6, Article 4; the target article and clause exist in `158`. | The complete set of amended provisions and their final validity. | `seed_evidence_located` |
+| `238/2026/NĐ-CP → 168/2024/NĐ-CP` | `238` Article 1 clauses 1–2 respectively change `168` Article 3 clause 3 points `i` and `l`. | The complete set of amended provisions and their final validity. | `candidate_evidence_verified` |
+| `241/2026/NĐ-CP → 165/2024/NĐ-CP` | `241` Article 1 changes `165` Article 4. | The complete set of amended provisions and their final validity. | `candidate_evidence_verified` |
+| `236/2026/NĐ-CP → 151/2024/NĐ-CP` | `236` Article 1 changes `151` Article 9 clause 1. | The complete set of amended provisions and the role of `184/2025/NĐ-CP` in each target provision. | `candidate_evidence_verified` |
+| `218/2026/NĐ-CP → 158/2024/NĐ-CP` | `218` Article 1 changes `158` Article 4 clause 6 point `a`. | The complete set of amended provisions and their final validity. | `candidate_evidence_verified` |
 | `108/2026/TT-BCA` and `12/2025/TT-BCA` | Both concern licensing tests, licence issuance, and international permits. | That either one replaces or amends the other. | `no_relation_claimed` |
 
 ## Known gaps and exclusions
@@ -116,7 +116,7 @@ This yields one foundation law, five distinct question families, and four explic
 | Graph-ready portal metadata | Parsed artifact v2 has document type, effect status, organ, and signer on 12/12 documents; field on 11/12 and major on 8/12. | This supports only deterministic metadata nodes; it does not create legal-change relations. |
 | Structural graph projection | Local Neo4j verification reconciled 12 documents, 6,433 hierarchy nodes, 6,445 snapshot-membership edges, and 6,433 `HAS_*` edges; a second MERGE import preserved the counts. | `AMENDS` is still zero; no retrieval, vector index, or QA claim follows from this structural graph. |
 | Public portal route | 12/12 public URLs are recorded and returned HTTP `200`. The route was read from the portal's own frontend code. | The page is client-rendered and the portal WAF blocks headless rendering, so API identity remains the automated evidence. |
-| Amendment evidence | A precise Article-1 source provision and target-unit presence are located for each of the four amendment chains. | These are candidate inputs, not approved relation records or temporal QA evidence. |
+| Amendment evidence | Five exact candidate mappings are located: two for `238→168` and one each for the other three chains. | They are candidate inputs, not approved relation records or temporal QA evidence. The Phase 2B validator is ready, but requires human review metadata before import. |
 | Scope and safety | `238/2026/NĐ-CP` is explicitly marked not effective until 2026-08-15. | No current-law answer may apply it before that date. |
 
 It is still only a pilot. The validated draft snapshot has 6,433 hierarchy units, but has no machine-readable approved relation artifact and no gold questions. Calling it a promoted corpus, measured GraphRAG system, or legal temporal-answer system now would be false.

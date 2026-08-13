@@ -4,7 +4,7 @@ Blueprint cho một sản phẩm tra cứu và hỏi đáp pháp luật giao th�
 
 ## Trạng thái
 
-Code hiện có gồm ingestion và **structural Neo4j graph** cho draft snapshot 12 văn bản: raw immutable, normalized text, parsed hierarchy, manifest, quality report, metadata portal, node/edge graph và reconciliation command. Blueprint còn hybrid retrieval, rerank, generation có citation, cache và monitoring; các lớp đó chưa được scaffold giả tạo trước phase của chúng. Snapshot chưa được promote: chưa có index/evaluation gate, gold questions hay approved `AMENDS` records.
+Code hiện có gồm ingestion, **structural Neo4j graph**, và contract kiểm chứng artifact `AMENDS` cho draft snapshot 12 văn bản: raw immutable, normalized text, parsed hierarchy, manifest, quality report, metadata portal, node/edge graph và reconciliation command. Blueprint còn hybrid retrieval, rerank, generation có citation, cache và monitoring; các lớp đó chưa được scaffold giả tạo trước phase của chúng. Snapshot chưa được promote: chưa có index/evaluation gate, gold questions hay relation record được người review phê duyệt.
 
 ## Product đã chốt
 
@@ -43,6 +43,20 @@ $env:NEO4J_PASSWORD = Read-Host "Neo4j password"
 docker compose up --detach --wait
 uv run traffic-legal-qa import-graph --snapshot-id traffic-2026-08-13-v1
 uv run traffic-legal-qa verify-graph --snapshot-id traffic-2026-08-13-v1
+```
+
+Sau khi một curator phê duyệt relation artifact, kiểm chứng nó trước rồi truyền cùng artifact cho cả import và verify:
+
+```powershell
+uv run traffic-legal-qa validate-relations `
+  --snapshot-id traffic-2026-08-13-v1 `
+  --relation-artifact data/relations/traffic-2026-08-13-v1.json
+uv run traffic-legal-qa import-graph `
+  --snapshot-id traffic-2026-08-13-v1 `
+  --relation-artifact data/relations/traffic-2026-08-13-v1.json
+uv run traffic-legal-qa verify-graph `
+  --snapshot-id traffic-2026-08-13-v1 `
+  --relation-artifact data/relations/traffic-2026-08-13-v1.json
 ```
 
 Raw response, parsed artifacts và report sinh ra trong `data/` được `.gitignore`; catalog được version-control.

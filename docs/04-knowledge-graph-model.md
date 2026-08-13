@@ -70,7 +70,7 @@ Each explicit label (`Part` through `Point`) has these common properties. `unit_
 | AMENDS | newer provision/document → older provision/document | Approved legal change |
 | RELATED_TO | Document → Document | Optional portal relation only; never a legal inference |
 
-`IN_FIELD.sources` is the set of portal categories (`fields`, `majors`) that yielded the edge, so one document/topic pair is not duplicated. `AMENDS` carries `relation_id`, `amendment_type`, `evidence_unit_id`, `source_url`, `raw_sha256`, `snapshot_id`, `review_status`, `reviewed_at`, and `note`. A candidate relation remains outside the active graph; it cannot affect public validity answers. `RELATED_TO` is imported only when the portal actually provides it and carries `provenance: portal`; it is excluded from temporal and legal reasoning.
+`IN_FIELD.sources` is the set of portal categories (`fields`, `majors`) that yielded the edge, so one document/topic pair is not duplicated. `AMENDS` carries `relation_id`, `amendment_type`, `evidence_unit_id`, `source_url`, `raw_sha256`, `snapshot_id`, `provenance`, `review_status`, `reviewed_by`, `reviewed_at`, and optional `note`. A candidate relation remains outside the active graph; it cannot affect public validity answers. `RELATED_TO` is imported only when the portal actually provides it and carries `provenance: portal`; it is excluded from temporal and legal reasoning.
 
 ## Hierarchy and citation
 
@@ -121,7 +121,7 @@ The public API never accepts arbitrary Cypher or LLM-generated graph queries.
 - Unique constraints on `(snapshot_id, document_id)`, each hierarchy label's `(snapshot_id, unit_id)`, and `snapshot_id`.
 - Every `HAS_*` hierarchy path is acyclic and each unit has one deterministic parent.
 - A unit belongs to exactly one document and one imported snapshot artifact.
-- Every public cross-document relation has provenance and review status.
+- Every public cross-document relation has provenance, review status, and reviewer identity.
 - Every `AMENDS` edge has the approved relation artifact's evidence and review properties.
 - Every citation resolves as `(active_snapshot_id, unit_id)`.
 
@@ -129,7 +129,7 @@ The public API never accepts arbitrary Cypher or LLM-generated graph queries.
 
 `graph/importer.py` accepts only the same validated parsed snapshot used by the ingestion CLI. It creates 13 Neo4j uniqueness constraints, MERGEs nodes and structural edges, then runs `verify-graph`; a count mismatch makes the command fail. The verified `traffic-2026-08-13-v1` graph contains 12 `Document`, 6,433 hierarchy nodes, 6,445 `IN_SNAPSHOT` edges, and 6,433 `HAS_*` edges. The count is intentionally `12 + 6,433` for snapshot membership; metadata edges are separate. Re-running the import produced the same counts.
 
-This phase imports no `AMENDS`, `RELATED_TO`, lexical/vector index, or retrieval artifact. `AMENDS` remains zero until the reviewed relation artifact exists.
+Phase 2B adds a validated approved-relation artifact contract and optional `AMENDS` projection. It verifies artifact version, snapshot scope, approval, reviewer, provenance, source raw SHA-256 and URL, plus source/target/evidence locators before the importer sees a record. `AMENDS` remains zero until a human-reviewed artifact is supplied. `RELATED_TO`, lexical/vector indexes, and retrieval artifacts remain absent.
 
 ## Deferred complexity
 

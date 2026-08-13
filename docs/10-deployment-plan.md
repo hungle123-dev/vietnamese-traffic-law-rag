@@ -36,9 +36,9 @@ Phase 2A provides `compose.yaml` with a loopback-only Neo4j Community `5.26.28` 
 ## Responsibilities
 
 - API: read-only QA/search path, health/readiness, input boundary, rate limits.
-- Worker or CLI: curated fetch, artifact storage, parse, graph projection, batch embedding, index build, evaluation, and promotion. None of these jobs run in a user request.
+- Worker or CLI: curated fetch, artifact storage, parse, reviewed-relation validation, graph projection, batch embedding, index build, evaluation, and promotion. None of these jobs run in a user request.
 - Neo4j: legal graph plus lexical and vector indexes.
-- Artifact storage: raw response, normalized text, parsed documents, manifests, reports, and evaluation outputs.
+- Artifact storage: raw response, normalized text, parsed documents, approved relation artifacts, manifests, reports, and evaluation outputs.
 - LLM provider: optional generation dependency behind a small provider adapter.
 
 ## Configuration contract

@@ -42,6 +42,7 @@ This checklist distinguishes a documentation-ready blueprint from a released pro
 
 - [x] Neo4j constraints protect document, unit, and snapshot identity (13 constraints verified on the local Compose graph).
 - [x] Projection creates explicit `Part` through `Point` labels and deterministic `HAS_*` edges that reconcile with the parsed manifest (12 documents, 6,433 units; re-import verified idempotent).
+- [x] Approved-only relation artifacts are validated against snapshot scope, source raw hash/URL, and source/target/evidence locators before `AMENDS` projection.
 - [ ] Exact lookup, lexical, and dense retrieval run independently.
 - [ ] Hybrid fusion is versioned and evaluated.
 - [ ] Reranking is bounded and has fallback.

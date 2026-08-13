@@ -86,9 +86,8 @@ Fetch accepts only a document ID already present in the approved catalog. It nev
 
 ## Phase 2 implementation order
 
-After the current artifact rebuild and manifest validation, add:
+After structural projection and relation-artifact validation, add:
 
-    graph/importer.py
     graph/validity.py
     retrieval/lexical.py
     retrieval/dense.py
@@ -98,9 +97,9 @@ After the current artifact rebuild and manifest validation, add:
     evaluation/metrics.py
     evaluation/runner.py
 
-Add the Neo4j driver and embedding dependencies only at this phase. Build lexical and dense baselines separately before fusion. Do not add reranking before R0–R2 results exist.
+The Neo4j driver is already installed for the graph foundation. Add embedding dependencies only when the dense baseline is implemented. Build lexical and dense baselines separately before fusion. Do not add reranking before R0–R2 results exist.
 
-Import deterministic hierarchy as explicit `Part`, `Chapter`, `Section`, `Article`, `Clause`, and `Point` labels first; then attach actual portal metadata (`DocumentType`, `EffectStatus`, `Field`, `Organization`, `Signer`). Import only approved `AMENDS` records from `relations/{snapshot_id}.json`; their `amendment_type`, evidence unit, raw hash, and review properties are mandatory. A relation candidate, portal hint, or unresolved source/target must fail the relation import rather than create a public legal edge.
+Import deterministic hierarchy as explicit `Part`, `Chapter`, `Section`, `Article`, `Clause`, and `Point` labels first; then attach actual portal metadata (`DocumentType`, `EffectStatus`, `Field`, `Organization`, `Signer`). Import only approved `AMENDS` records from `relations/{snapshot_id}.json`; their `amendment_type`, evidence unit, raw hash, source URL, provenance, reviewer identity, and review properties are mandatory. A relation candidate, portal hint, hash/URL mismatch, or unresolved source/target/evidence must fail the relation import rather than create a public legal edge.
 
 ### Phase 2A delivered: structural graph only
 
@@ -109,7 +108,11 @@ Import deterministic hierarchy as explicit `Part`, `Chapter`, `Section`, `Articl
     cli.py: import-graph, verify-graph
     tests/unit/test_graph_importer.py
 
-The importer reuses `_validated_snapshot`, so no raw/manifest/parsed integrity check is duplicated or bypassed. It creates constraints, imports only `Document`, portal metadata, `Snapshot`, and hierarchy labels/edges, then reconciles actual Neo4j counts with the parsed artifact. `AMENDS`, retrieval, embedding, and index code are intentionally absent.
+At the Phase 2A release, the importer reused `_validated_snapshot`, created constraints, and projected only `Document`, portal metadata, `Snapshot`, and hierarchy labels/edges before reconciling counts. Phase 2B extends that same importer with an explicit relation gate; retrieval, embedding, and index code remain absent.
+
+### Phase 2B delivered: relation gate, not legal-fact promotion
+
+`ingestion/relations.py` defines an approved-only Pydantic artifact and resolves every relation against the validated snapshot before graph projection. The CLI adds `validate-relations`; `import-graph` and `verify-graph` accept the same optional `--relation-artifact` and count `AMENDS` when present. The relation model has no automatic extractor and no candidate status: candidates stay outside `data/relations/` until a human curator approves them. Therefore code readiness does not claim that the current 12-document graph has `AMENDS` edges.
 
 ## Phase 3 implementation order
 

@@ -18,6 +18,11 @@ from traffic_legal_qa.graph.importer import GraphImportError, GraphSnapshotImpor
 from traffic_legal_qa.ingestion.models import ParsedDocument, ReviewedSource
 from traffic_legal_qa.ingestion.pipeline import IngestionPipeline
 from traffic_legal_qa.ingestion.portal import PortalClient, PortalError
+from traffic_legal_qa.ingestion.relations import (
+    ApprovedRelation,
+    load_approved_relation_artifact,
+    resolve_approved_relations,
+)
 from traffic_legal_qa.ingestion.storage import ArtifactStore
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
@@ -112,6 +117,14 @@ def _validated_snapshot(
             raise ValueError(f"parsed artifact version mismatch: {document_id}")
         validated.append((entry, parsed))
     return validated
+
+
+def _approved_relations(
+    relation_artifact: Path | None, documents: list[ParsedDocument]
+) -> tuple[ApprovedRelation, ...]:
+    if relation_artifact is None:
+        return ()
+    return resolve_approved_relations(load_approved_relation_artifact(relation_artifact), documents)
 
 
 @app.command("fetch-portal")
@@ -291,6 +304,10 @@ def import_graph(
         typer.Option(envvar="NEO4J_PASSWORD", help="Neo4j password; prefer NEO4J_PASSWORD."),
     ],
     data_root: Annotated[Path, typer.Option(help="Artifact root.")] = Path("data"),
+    relation_artifact: Annotated[
+        Path | None,
+        typer.Option(help="Approved AMENDS artifact; omit to project structure only."),
+    ] = None,
     neo4j_uri: Annotated[str, typer.Option(help="Bolt URI.")] = "bolt://localhost:7687",
     neo4j_username: Annotated[str, typer.Option(help="Neo4j username.")] = "neo4j",
     neo4j_database: Annotated[str, typer.Option(help="Neo4j database.")] = "neo4j",
@@ -299,10 +316,11 @@ def import_graph(
 
     try:
         documents = [parsed for _, parsed in _validated_snapshot(snapshot_id, data_root)]
+        relations = _approved_relations(relation_artifact, documents)
         with GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password)) as driver:
             driver.verify_connectivity()
             verification = GraphSnapshotImporter(driver, database=neo4j_database).import_snapshot(
-                snapshot_id, documents
+                snapshot_id, documents, relations
             )
     except (
         DriverError,
@@ -325,6 +343,10 @@ def verify_graph(
         typer.Option(envvar="NEO4J_PASSWORD", help="Neo4j password; prefer NEO4J_PASSWORD."),
     ],
     data_root: Annotated[Path, typer.Option(help="Artifact root.")] = Path("data"),
+    relation_artifact: Annotated[
+        Path | None,
+        typer.Option(help="Approved AMENDS artifact expected in the graph."),
+    ] = None,
     neo4j_uri: Annotated[str, typer.Option(help="Bolt URI.")] = "bolt://localhost:7687",
     neo4j_username: Annotated[str, typer.Option(help="Neo4j username.")] = "neo4j",
     neo4j_database: Annotated[str, typer.Option(help="Neo4j database.")] = "neo4j",
@@ -333,10 +355,11 @@ def verify_graph(
 
     try:
         documents = [parsed for _, parsed in _validated_snapshot(snapshot_id, data_root)]
+        relations = _approved_relations(relation_artifact, documents)
         with GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password)) as driver:
             driver.verify_connectivity()
             verification = GraphSnapshotImporter(driver, database=neo4j_database).verify_snapshot(
-                snapshot_id, expected_counts(documents)
+                snapshot_id, expected_counts(documents, relations)
             )
     except (
         DriverError,
@@ -351,6 +374,46 @@ def verify_graph(
     typer.echo(json.dumps(verification.model_dump(), ensure_ascii=False))
     if not verification.is_valid:
         raise typer.Exit(code=1)
+
+
+@app.command("validate-relations")
+def validate_relations(
+    snapshot_id: Annotated[str, typer.Option(help="Validated draft snapshot identifier.")],
+    relation_artifact: Annotated[
+        Path,
+        typer.Option(
+            exists=True,
+            dir_okay=False,
+            readable=True,
+            help="Approved AMENDS artifact JSON.",
+        ),
+    ],
+    data_root: Annotated[Path, typer.Option(help="Artifact root.")] = Path("data"),
+) -> None:
+    """Resolve every approved AMENDS record against its frozen parsed snapshot."""
+
+    try:
+        documents = [parsed for _, parsed in _validated_snapshot(snapshot_id, data_root)]
+        relations = _approved_relations(relation_artifact, documents)
+    except (
+        KeyError,
+        TypeError,
+        ValueError,
+        OSError,
+        json.JSONDecodeError,
+        ValidationError,
+    ) as exc:
+        raise typer.BadParameter(f"invalid relation artifact: {relation_artifact}") from exc
+    typer.echo(
+        json.dumps(
+            {
+                "snapshot_id": snapshot_id,
+                "relation_count": len(relations),
+                "relation_ids": [relation.relation_id for relation in relations],
+            },
+            ensure_ascii=False,
+        )
+    )
 
 
 @app.command("report-snapshot")

@@ -139,6 +139,7 @@ Cross-document legal relations are a separate reviewed dataset, analogous to the
 
 ```json
 {
+  "artifact_version": "1",
   "snapshot_id": "traffic-YYYY-MM-DD-v1",
   "relations": [
     {
@@ -156,7 +157,9 @@ Cross-document legal relations are a separate reviewed dataset, analogous to the
       "evidence_unit_id": "168/2024/NĐ-CP::article::52::clause::1",
       "source_url": "https://phapluat.gov.vn/<verified-public-document-page>",
       "raw_sha256": "...",
+      "provenance": "reviewed_primary_source",
       "review_status": "approved",
+      "reviewed_by": "<human-curator-identifier>",
       "reviewed_at": "YYYY-MM-DD",
       "note": null
     }
@@ -164,7 +167,7 @@ Cross-document legal relations are a separate reviewed dataset, analogous to the
 }
 ```
 
-`AMENDS` is the one legal-change edge; `amendment_type` retains the precise source wording instead of splitting it into ambiguous edge types. `source.unit_id` and `target.unit_id` may be null only for a reviewed document-level relation; `evidence_unit_id`, `source_url`, `raw_sha256`, `snapshot_id`, and `review_status: approved` are required for every imported edge. The importer accepts only approved records whose referenced documents and units resolve inside the draft snapshot. A future portal `RELATED_TO` edge carries `provenance: portal` and is excluded from validity and legal inference.
+`AMENDS` is the one legal-change edge; `amendment_type` is one of the reviewed source classifications (`sửa đổi`, `bổ sung`, `bãi bỏ`, `thay thế`, or `sửa đổi, bổ sung`) instead of splitting it into ambiguous edge types. `source.unit_id` and `target.unit_id` may be null only for a reviewed document-level relation; `evidence_unit_id`, `source_url`, `raw_sha256`, `snapshot_id`, `provenance: reviewed_primary_source`, `review_status: approved`, `reviewed_by`, and `reviewed_at` are required for every imported edge. The importer accepts only approved records whose source raw hash and URL match the frozen parsed source, and whose referenced documents and units resolve inside the draft snapshot. Candidate files remain outside `data/relations/`. A future portal `RELATED_TO` edge carries `provenance: portal` and is excluded from validity and legal inference.
 
 ## Normalization and hierarchy
 
