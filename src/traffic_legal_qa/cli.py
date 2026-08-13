@@ -126,6 +126,10 @@ def _validated_snapshot(
     return validated
 
 
+def _parsed_documents(snapshot_id: str, data_root: Path) -> list[ParsedDocument]:
+    return [parsed for _, parsed in _validated_snapshot(snapshot_id, data_root)]
+
+
 def _approved_relations(
     relation_artifact: Path | None, documents: list[ParsedDocument]
 ) -> tuple[ApprovedRelation, ...]:
@@ -336,7 +340,7 @@ def import_graph(
     """Project one validated snapshot's hierarchy and portal metadata into Neo4j."""
 
     try:
-        documents = [parsed for _, parsed in _validated_snapshot(snapshot_id, data_root)]
+        documents = _parsed_documents(snapshot_id, data_root)
         relations = _approved_relations(relation_artifact, documents)
         with GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password)) as driver:
             driver.verify_connectivity()
@@ -375,7 +379,7 @@ def verify_graph(
     """Reconcile Neo4j's structural graph with the validated snapshot artifacts."""
 
     try:
-        documents = [parsed for _, parsed in _validated_snapshot(snapshot_id, data_root)]
+        documents = _parsed_documents(snapshot_id, data_root)
         relations = _approved_relations(relation_artifact, documents)
         with GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password)) as driver:
             driver.verify_connectivity()
@@ -414,7 +418,7 @@ def validate_relations(
     """Resolve every approved AMENDS record against its frozen parsed snapshot."""
 
     try:
-        documents = [parsed for _, parsed in _validated_snapshot(snapshot_id, data_root)]
+        documents = _parsed_documents(snapshot_id, data_root)
         relations = _approved_relations(relation_artifact, documents)
     except (
         KeyError,
@@ -454,7 +458,7 @@ def validate_gold_set(
     """Resolve every retrieval citation against one frozen parsed snapshot."""
 
     try:
-        documents = [parsed for _, parsed in _validated_snapshot(snapshot_id, data_root)]
+        documents = _parsed_documents(snapshot_id, data_root)
         artifact = load_gold_question_artifact(gold_set)
         questions = resolve_gold_questions(artifact, documents)
     except (
@@ -504,7 +508,7 @@ def build_lexical_index(
     """Build the snapshot-safe Neo4j full-text index outside the query path."""
 
     try:
-        documents = [parsed for _, parsed in _validated_snapshot(snapshot_id, data_root)]
+        documents = _parsed_documents(snapshot_id, data_root)
         with GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password)) as driver:
             driver.verify_connectivity()
             status = Neo4jLexicalRetriever(driver, database=neo4j_database).build_index(
@@ -540,7 +544,7 @@ def search_lexical(
     """Retrieve exact locators and Neo4j full-text candidates from one snapshot."""
 
     try:
-        documents = [parsed for _, parsed in _validated_snapshot(snapshot_id, data_root)]
+        documents = _parsed_documents(snapshot_id, data_root)
         with GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password)) as driver:
             driver.verify_connectivity()
             retriever = Neo4jLexicalRetriever(driver, database=neo4j_database)
@@ -599,7 +603,7 @@ def evaluate_r0(
     """Evaluate the fixed R0 exact-plus-lexical baseline without test-set tuning."""
 
     try:
-        documents = [parsed for _, parsed in _validated_snapshot(snapshot_id, data_root)]
+        documents = _parsed_documents(snapshot_id, data_root)
         questions = resolve_gold_questions(load_gold_question_artifact(gold_set), documents)
         with GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password)) as driver:
             driver.verify_connectivity()
