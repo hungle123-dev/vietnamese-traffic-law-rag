@@ -119,6 +119,7 @@ receipts/{sha256}.json
 normalized/{sha256}.txt
 parsed/{document_id}__{snapshot_id}.json
 relations/{snapshot_id}.json
+gold/{snapshot_id}.source-verified.json
 manifests/{snapshot_id}.json
 reports/{run_id}.json
 ```
@@ -132,6 +133,7 @@ reports/{run_id}.json
 - Schema-invalid raw responses remain quarantined for drift diagnosis and are never exposed as search or QA evidence.
 - Quarantine is a run/manifest classification of the one immutable raw artifact, not a second copy of its bytes.
 - Logical `document_id` and `unit_id` stay stable across refreshes; a graph import scopes their physical records by `snapshot_id`.
+- A tracked retrieval gold set is separate from raw/parsed artifacts. It has a snapshot ID, stable question ID, fixed split, gold document/unit IDs, query date, question type, difficulty, and explicit review status. The validator resolves every gold unit to a gold document in the frozen validated snapshot. `source_verified` means that the source provision and its ID were re-read; it is not human legal approval and does not authorize a validity conclusion.
 
 ## Curated relation artifact
 

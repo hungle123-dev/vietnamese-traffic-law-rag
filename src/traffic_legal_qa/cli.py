@@ -14,6 +14,10 @@ from neo4j import GraphDatabase
 from neo4j.exceptions import DriverError, Neo4jError
 from pydantic import ValidationError
 
+from traffic_legal_qa.evaluation.datasets import (
+    load_gold_question_artifact,
+    resolve_gold_questions,
+)
 from traffic_legal_qa.graph.importer import GraphImportError, GraphSnapshotImporter, expected_counts
 from traffic_legal_qa.ingestion.models import ParsedDocument, ReviewedSource
 from traffic_legal_qa.ingestion.pipeline import IngestionPipeline
@@ -410,6 +414,58 @@ def validate_relations(
                 "snapshot_id": snapshot_id,
                 "relation_count": len(relations),
                 "relation_ids": [relation.relation_id for relation in relations],
+            },
+            ensure_ascii=False,
+        )
+    )
+
+
+@app.command("validate-gold-set")
+def validate_gold_set(
+    snapshot_id: Annotated[str, typer.Option(help="Validated draft snapshot identifier.")],
+    gold_set: Annotated[
+        Path,
+        typer.Option(
+            exists=True,
+            dir_okay=False,
+            readable=True,
+            help="Citation-backed retrieval gold-set JSON.",
+        ),
+    ],
+    data_root: Annotated[Path, typer.Option(help="Artifact root.")] = Path("data"),
+) -> None:
+    """Resolve every retrieval citation against one frozen parsed snapshot."""
+
+    try:
+        documents = [parsed for _, parsed in _validated_snapshot(snapshot_id, data_root)]
+        artifact = load_gold_question_artifact(gold_set)
+        questions = resolve_gold_questions(artifact, documents)
+    except (
+        KeyError,
+        TypeError,
+        ValueError,
+        OSError,
+        json.JSONDecodeError,
+        ValidationError,
+    ) as exc:
+        raise typer.BadParameter(f"invalid gold question artifact: {gold_set}") from exc
+    typer.echo(
+        json.dumps(
+            {
+                "snapshot_id": snapshot_id,
+                "question_count": len(questions),
+                "gold_unit_count": len(
+                    {unit_id for question in questions for unit_id in question.gold_unit_ids}
+                ),
+                "split_counts": dict(
+                    sorted(Counter(question.split for question in questions).items())
+                ),
+                "question_type_counts": dict(
+                    sorted(Counter(question.question_type for question in questions).items())
+                ),
+                "review_status_counts": dict(
+                    sorted(Counter(question.review_status for question in questions).items())
+                ),
             },
             ensure_ascii=False,
         )

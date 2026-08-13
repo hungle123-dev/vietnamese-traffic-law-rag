@@ -114,6 +114,10 @@ At the Phase 2A release, the importer reused `_validated_snapshot`, created cons
 
 `ingestion/relations.py` defines an approved-only Pydantic artifact and resolves every relation against the validated snapshot before graph projection. The CLI adds `validate-relations`; `import-graph` and `verify-graph` accept the same optional `--relation-artifact` and count `AMENDS` when present. The relation model has no automatic extractor and no candidate status: candidates stay outside `data/relations/` until a human curator approves them. Therefore code readiness does not claim that the current 12-document graph has `AMENDS` edges.
 
+### Phase 2C delivered: source-verified retrieval targets
+
+`evaluation/datasets.py` defines one small, immutable retrieval-gold artifact and resolves every gold document/unit locator against `_validated_snapshot`. `data/gold/traffic-2026-08-13-v1.source-verified.json` is tracked because it is curation input, unlike generated parsed artifacts. The CLI command `validate-gold-set` reports its count, split, taxonomy, and review-status counts. It stores no generated answer and makes no legal-effect claim; `source_verified` is intentionally weaker than human approval. The 30 questions are split 15 dev / 15 test, and each base/amendment family remains in a single split.
+
 ## Phase 3 implementation order
 
 Only after R0–R2 establish a retrieval configuration, add:

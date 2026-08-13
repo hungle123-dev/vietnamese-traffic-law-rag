@@ -20,9 +20,11 @@ Each question stores:
     difficulty
     review_status
 
+The initial artifact is [traffic-2026-08-13-v1.source-verified.json](../data/gold/traffic-2026-08-13-v1.source-verified.json): 30 retrieval-only questions, split 15 dev / 15 test. `validate-gold-set` resolves every gold document/unit ID through the validated snapshot before any retrieval score is reported. Its status is deliberately `source_verified`, not legal-expert approval: it is valid ground truth for citation retrieval, but cannot by itself support temporal, amendment, or answer-quality claims.
+
 Question taxonomy includes definitions, obligations, prohibitions, penalties, procedures, temporal validity, comparisons, multi-document questions, ambiguity, and out-of-domain cases.
 
-Paraphrases with the same intent and gold units stay in one split. Temporal versions must not leak across development and test data.
+Paraphrases with the same intent and gold units stay in one split. Temporal versions must not leak across development and test data. In the pilot, each base/amendment family is held entirely in one split; the questions retrieve source text and contain no current-validity labels because no approved relation artifact exists.
 
 ## Metrics by layer
 

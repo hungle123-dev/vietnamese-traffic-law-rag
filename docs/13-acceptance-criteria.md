@@ -22,6 +22,7 @@ This checklist distinguishes a documentation-ready blueprint from a released pro
 - [x] Every selected record has expected document ID, title, public page URL, and curator status.
 - [x] Every selected response contains complete readable structured HTML.
 - [ ] Thirty pilot questions have reviewed gold citation IDs (required before retrieval configuration is selected, not before structural graph import).
+- [x] A tracked 30-question retrieval-only pilot set has source-verified citation IDs that resolve against the frozen snapshot (15 dev / 15 test); its `source_verified` status is intentionally not substituted for the reviewed-gold gate above.
 - [ ] Every pilot temporal or amendment question has an approved relation-evidence record (required before that relation affects validity or a QA answer).
 - [x] Sanitized portal JSON and HTML fixtures exist.
 - [x] Curator checklist documents status and relation limitations.

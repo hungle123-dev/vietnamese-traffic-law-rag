@@ -4,7 +4,7 @@ Blueprint cho một sản phẩm tra cứu và hỏi đáp pháp luật giao th�
 
 ## Trạng thái
 
-Code hiện có gồm ingestion, **structural Neo4j graph**, và contract kiểm chứng artifact `AMENDS` cho draft snapshot 12 văn bản: raw immutable, normalized text, parsed hierarchy, manifest, quality report, metadata portal, node/edge graph và reconciliation command. Blueprint còn hybrid retrieval, rerank, generation có citation, cache và monitoring; các lớp đó chưa được scaffold giả tạo trước phase của chúng. Snapshot chưa được promote: chưa có index/evaluation gate, gold questions hay relation record được người review phê duyệt.
+Code hiện có gồm ingestion, **structural Neo4j graph**, contract kiểm chứng artifact `AMENDS`, và 30 retrieval gold citations được source-verify cho draft snapshot 12 văn bản: raw immutable, normalized text, parsed hierarchy, manifest, quality report, metadata portal, node/edge graph và reconciliation command. Blueprint còn hybrid retrieval, rerank, generation có citation, cache và monitoring; các lớp đó chưa được scaffold giả tạo trước phase của chúng. Snapshot chưa được promote: chưa có index/evaluation gate, gold questions hay relation record được người review pháp lý phê duyệt.
 
 ## Product đã chốt
 
@@ -38,6 +38,9 @@ uv run traffic-legal-qa validate-snapshot --snapshot-id traffic-2026-08-13-v1
 uv run traffic-legal-qa report-snapshot `
   --snapshot-id traffic-2026-08-13-v1 `
   --catalog data/catalog/pilot-traffic-2026-08-13-v1.json
+uv run traffic-legal-qa validate-gold-set `
+  --snapshot-id traffic-2026-08-13-v1 `
+  --gold-set data/gold/traffic-2026-08-13-v1.source-verified.json
 
 $env:NEO4J_PASSWORD = Read-Host "Neo4j password"
 docker compose up --detach --wait
