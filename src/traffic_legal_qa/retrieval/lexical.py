@@ -12,12 +12,15 @@ from neo4j import Driver, Record
 
 from traffic_legal_qa.ingestion.models import ParsedDocument, UnitType
 
-LEXICAL_INDEX_NAME: Final = "legal_units_fts_v1"
-LEXICAL_INDEX_FORMAT: Final = "neo4j-fulltext-v1"
-_INDEXED_LABELS: Final = ("Part", "Chapter", "Section", "Article", "Clause", "Point")
-_INDEXED_PROPERTIES: Final = ("snapshot_id", "document_id", "title", "text")
+LEXICAL_INDEX_NAMES: Final = (
+    "legal_articles_fts_v1",
+    "legal_clauses_fts_v1",
+    "legal_points_fts_v1",
+)
+LEXICAL_INDEX_FORMAT: Final = "neo4j-fulltext-3way-rrf-v1"
 _FULLTEXT_ANALYZER: Final = "standard-no-stop-words"
-_UNIT_TYPES: Final = frozenset(("part", "chapter", "section", "article", "clause", "point"))
+_RRF_K: Final = 60
+_UNIT_TYPES: Final = frozenset(("article", "clause", "point"))
 _TOKEN = re.compile(r"\w+", re.UNICODE)
 _ARTICLE = re.compile(r"\bdieu\s+(\d+[a-z]?)\b")
 _CLAUSE = re.compile(r"\bkhoan\s+(\d+[a-z]?)\b")
@@ -29,11 +32,41 @@ class LexicalIndexError(RuntimeError):
 
 
 @dataclass(frozen=True)
+class _FulltextIndex:
+    name: str
+    label: str
+    unit_type: UnitType
+    properties: tuple[str, ...]
+
+
+_FULLTEXT_INDEXES: Final = (
+    _FulltextIndex(
+        name="legal_articles_fts_v1",
+        label="Article",
+        unit_type="article",
+        properties=("snapshot_id", "document_id", "title", "text"),
+    ),
+    _FulltextIndex(
+        name="legal_clauses_fts_v1",
+        label="Clause",
+        unit_type="clause",
+        properties=("snapshot_id", "document_id", "text"),
+    ),
+    _FulltextIndex(
+        name="legal_points_fts_v1",
+        label="Point",
+        unit_type="point",
+        properties=("snapshot_id", "document_id", "text"),
+    ),
+)
+
+
+@dataclass(frozen=True)
 class LexicalIndexStatus:
     """Verified full-text index state for one graph snapshot."""
 
     snapshot_id: str
-    index_name: str
+    index_names: tuple[str, ...]
     index_format: str
     state: str
     expected_unit_count: int
@@ -42,7 +75,7 @@ class LexicalIndexStatus:
     def model_dump(self) -> dict[str, object]:
         return {
             "snapshot_id": self.snapshot_id,
-            "index_name": self.index_name,
+            "index_names": list(self.index_names),
             "index_format": self.index_format,
             "state": self.state,
             "expected_unit_count": self.expected_unit_count,
@@ -65,6 +98,7 @@ class RetrievalCandidate:
     exact_rank: int | None = None
     lexical_rank: int | None = None
     lexical_score: float | None = None
+    lexical_rrf_score: float | None = None
 
     def model_dump(self) -> dict[str, object]:
         return {
@@ -79,11 +113,12 @@ class RetrievalCandidate:
             "exact_rank": self.exact_rank,
             "lexical_rank": self.lexical_rank,
             "lexical_score": self.lexical_score,
+            "lexical_rrf_score": self.lexical_rrf_score,
         }
 
 
 class Neo4jLexicalRetriever:
-    """The one v1 lexical store; its index is built outside the request path."""
+    """Three snapshot-scoped full-text indexes, built outside the request path."""
 
     def __init__(self, driver: Driver, database: str = "neo4j") -> None:
         self._driver = driver
@@ -92,17 +127,18 @@ class Neo4jLexicalRetriever:
     def build_index(
         self, snapshot_id: str, documents: list[ParsedDocument], wait_seconds: float = 30.0
     ) -> LexicalIndexStatus:
-        """Create the fixed full-text index and reject a mismatched graph snapshot."""
+        """Create the fixed full-text indexes and reject a mismatched graph snapshot."""
 
         if wait_seconds <= 0:
             raise LexicalIndexError("wait_seconds must be positive")
-        self._execute(
-            "CREATE FULLTEXT INDEX legal_units_fts_v1 IF NOT EXISTS "
-            "FOR (unit:Part|Chapter|Section|Article|Clause|Point) "
-            "ON EACH [unit.snapshot_id, unit.document_id, unit.title, unit.text] "
-            "OPTIONS {indexConfig: {`fulltext.analyzer`: 'standard-no-stop-words', "
-            "`fulltext.eventually_consistent`: false}}"
-        )
+        for index in _FULLTEXT_INDEXES:
+            properties = ", ".join(f"unit.{property_name}" for property_name in index.properties)
+            self._execute(
+                f"CREATE FULLTEXT INDEX {index.name} IF NOT EXISTS "
+                f"FOR (unit:{index.label}) ON EACH [{properties}] "
+                "OPTIONS {indexConfig: {`fulltext.analyzer`: 'standard-no-stop-words', "
+                "`fulltext.eventually_consistent`: false}}"
+            )
         return self.verify_index(snapshot_id, documents, wait_seconds=wait_seconds)
 
     def verify_index(
@@ -112,11 +148,11 @@ class Neo4jLexicalRetriever:
         *,
         wait_seconds: float = 0.0,
     ) -> LexicalIndexStatus:
-        """Confirm an offline-built index is online and covers this frozen snapshot."""
+        """Confirm offline-built indexes are online and cover this frozen snapshot."""
 
         if wait_seconds < 0:
             raise LexicalIndexError("wait_seconds must not be negative")
-        expected_unit_count = _validated_unit_count(snapshot_id, documents)
+        expected_unit_count = _validated_indexed_unit_count(snapshot_id, documents)
         state = self._await_online(wait_seconds)
         graph_unit_count = self._graph_unit_count(snapshot_id)
         if graph_unit_count != expected_unit_count:
@@ -126,7 +162,7 @@ class Neo4jLexicalRetriever:
             )
         return LexicalIndexStatus(
             snapshot_id=snapshot_id,
-            index_name=LEXICAL_INDEX_NAME,
+            index_names=LEXICAL_INDEX_NAMES,
             index_format=LEXICAL_INDEX_FORMAT,
             state=state,
             expected_unit_count=expected_unit_count,
@@ -152,22 +188,28 @@ class Neo4jLexicalRetriever:
             raise LexicalIndexError("an exact provision is missing from the graph snapshot")
 
         candidates_by_id = {candidate.unit_id: candidate for candidate in exact_candidates}
-        lexical_candidates = self._search_fulltext(
-            snapshot_id,
-            _fulltext_query(normalized_query, snapshot_id, document_ids),
-            document_ids,
-            top_k * 3,
+        lexical_candidates = _rrf_merge(
+            tuple(
+                self._search_fulltext(
+                    index,
+                    snapshot_id,
+                    _fulltext_query(normalized_query, snapshot_id, document_ids),
+                    document_ids,
+                    top_k,
+                )
+                for index in _FULLTEXT_INDEXES
+            )
         )
-        for lexical_rank, candidate in enumerate(lexical_candidates, start=1):
+        for candidate in lexical_candidates:
             existing = candidates_by_id.get(candidate.unit_id)
-            ranked = replace(candidate, lexical_rank=lexical_rank)
             if existing is None:
-                candidates_by_id[candidate.unit_id] = ranked
+                candidates_by_id[candidate.unit_id] = candidate
             else:
                 candidates_by_id[candidate.unit_id] = replace(
                     existing,
-                    lexical_rank=ranked.lexical_rank,
-                    lexical_score=ranked.lexical_score,
+                    lexical_rank=candidate.lexical_rank,
+                    lexical_score=candidate.lexical_score,
+                    lexical_rrf_score=candidate.lexical_rrf_score,
                 )
 
         exact_unit_id_set = {candidate.unit_id for candidate in exact_candidates}
@@ -182,29 +224,35 @@ class Neo4jLexicalRetriever:
     def _await_online(self, wait_seconds: float) -> str:
         deadline = time.monotonic() + wait_seconds
         while True:
-            record = self._one(
+            records = self._records(
                 "SHOW FULLTEXT INDEXES YIELD name, state, labelsOrTypes, properties, options "
-                "WHERE name = $index_name "
-                "RETURN state, labelsOrTypes, properties, options",
-                index_name=LEXICAL_INDEX_NAME,
+                "WHERE name IN $index_names "
+                "RETURN name, state, labelsOrTypes, properties, options",
+                index_names=list(LEXICAL_INDEX_NAMES),
             )
-            if record is None:
-                raise LexicalIndexError("full-text index was not created")
-            _validate_index_schema(record)
-            state = record["state"]
-            if not isinstance(state, str):
-                raise LexicalIndexError("full-text index returned a malformed state")
-            if state == "ONLINE":
-                return state
+            records_by_name = {
+                record["name"]: record for record in records if isinstance(record["name"], str)
+            }
+            states: list[str] = []
+            for index in _FULLTEXT_INDEXES:
+                record = records_by_name.get(index.name)
+                if record is None:
+                    raise LexicalIndexError(f"full-text index was not created: {index.name}")
+                _validate_index_schema(index, record)
+                state = record["state"]
+                if not isinstance(state, str):
+                    raise LexicalIndexError("full-text index returned a malformed state")
+                states.append(state)
+            if all(state == "ONLINE" for state in states):
+                return "ONLINE"
             if time.monotonic() >= deadline:
-                raise LexicalIndexError(f"full-text index did not become ONLINE: {state}")
+                raise LexicalIndexError(f"full-text indexes did not become ONLINE: {states}")
             time.sleep(0.1)
 
     def _graph_unit_count(self, snapshot_id: str) -> int:
         record = self._one(
             "MATCH (unit)-[:IN_SNAPSHOT]->(:Snapshot {snapshot_id: $snapshot_id}) "
-            "WHERE unit:Part OR unit:Chapter OR unit:Section OR unit:Article "
-            "OR unit:Clause OR unit:Point "
+            "WHERE unit:Article OR unit:Clause OR unit:Point "
             "RETURN count(unit) AS count",
             snapshot_id=snapshot_id,
         )
@@ -236,6 +284,7 @@ class Neo4jLexicalRetriever:
 
     def _search_fulltext(
         self,
+        index: _FulltextIndex,
         snapshot_id: str,
         fulltext_query: str,
         document_ids: tuple[str, ...],
@@ -253,13 +302,19 @@ class Neo4jLexicalRetriever:
             "document.source_url AS source_url, score "
             "ORDER BY score DESC, unit_id ASC "
             "LIMIT $limit",
-            index_name=LEXICAL_INDEX_NAME,
+            index_name=index.name,
             fulltext_query=fulltext_query,
             limit=limit,
             snapshot_id=snapshot_id,
             document_ids=list(document_ids),
         )
-        return tuple(_candidate_from_record(record, snapshot_id) for record in records)
+        candidates = tuple(_candidate_from_record(record, snapshot_id) for record in records)
+        if any(candidate.unit_type != index.unit_type for candidate in candidates):
+            raise LexicalIndexError(f"full-text index returned the wrong unit type: {index.name}")
+        return tuple(
+            replace(candidate, lexical_rank=rank)
+            for rank, candidate in enumerate(candidates, start=1)
+        )
 
     def _one(self, query: str, **parameters: object) -> Record | None:
         records = self._records(query, **parameters)
@@ -279,12 +334,19 @@ class Neo4jLexicalRetriever:
         self._driver.execute_query(query, database_=self._database)
 
 
-def _validated_unit_count(snapshot_id: str, documents: list[ParsedDocument]) -> int:
+def _validated_indexed_unit_count(snapshot_id: str, documents: list[ParsedDocument]) -> int:
     if not documents:
         raise LexicalIndexError("cannot index an empty snapshot")
     if {document.metadata.snapshot_id for document in documents} != {snapshot_id}:
         raise LexicalIndexError("parsed documents do not share the requested snapshot")
-    unit_ids = [unit.unit_id for document in documents for unit in document.units]
+    unit_ids = [
+        unit.unit_id
+        for document in documents
+        for unit in document.units
+        if unit.unit_type in _UNIT_TYPES
+    ]
+    if not unit_ids:
+        raise LexicalIndexError("snapshot has no Article, Clause, or Point units")
     if len(unit_ids) != len(set(unit_ids)):
         raise LexicalIndexError("snapshot has duplicate unit IDs")
     return len(unit_ids)
@@ -382,7 +444,7 @@ def _fold(value: str) -> str:
     )
 
 
-def _validate_index_schema(record: Record) -> None:
+def _validate_index_schema(index: _FulltextIndex, record: Record) -> None:
     labels = record["labelsOrTypes"]
     properties = record["properties"]
     options = record["options"]
@@ -392,13 +454,33 @@ def _validate_index_schema(record: Record) -> None:
         or not all(isinstance(label, str) for label in labels)
         or not isinstance(properties, list)
         or not all(isinstance(property_name, str) for property_name in properties)
-        or set(labels) != set(_INDEXED_LABELS)
-        or set(properties) != set(_INDEXED_PROPERTIES)
+        or labels != [index.label]
+        or set(properties) != set(index.properties)
         or not isinstance(index_config, dict)
         or index_config.get("fulltext.analyzer") != _FULLTEXT_ANALYZER
         or index_config.get("fulltext.eventually_consistent") is not False
     ):
         raise LexicalIndexError("full-text index does not match the retrieval contract")
+
+
+def _rrf_merge(
+    ranked_lists: tuple[tuple[RetrievalCandidate, ...], ...],
+) -> tuple[RetrievalCandidate, ...]:
+    candidates: dict[str, RetrievalCandidate] = {}
+    scores: dict[str, float] = {}
+    for ranked_candidates in ranked_lists:
+        for rank, candidate in enumerate(ranked_candidates, start=1):
+            candidates.setdefault(candidate.unit_id, candidate)
+            scores[candidate.unit_id] = scores.get(candidate.unit_id, 0.0) + 1.0 / (_RRF_K + rank)
+    return tuple(
+        sorted(
+            (
+                replace(candidate, lexical_rrf_score=scores[unit_id])
+                for unit_id, candidate in candidates.items()
+            ),
+            key=lambda candidate: (-cast(float, candidate.lexical_rrf_score), candidate.unit_id),
+        )
+    )
 
 
 def _candidate_from_record(

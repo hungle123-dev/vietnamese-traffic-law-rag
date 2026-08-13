@@ -120,7 +120,7 @@ At the Phase 2A release, the importer reused `_validated_snapshot`, created cons
 
 ### Phase 2D delivered: measured R0 lexical baseline code
 
-`retrieval/lexical.py` provides exact document/Điều/Khoản/Điểm lookup plus a single Neo4j full-text adapter. `build-lexical-index` is deliberately separate from `search-lexical`: the first creates the fixed full-text index and waits for `ONLINE`; the second only reads an index that has already passed snapshot-count reconciliation. `evaluation/metrics.py` and `evaluation/runner.py` compute source-ID retrieval metrics and persist a reproducible generated report via `evaluate-r0`. The first live R0 report remains an explicit gate: do not claim retrieval quality or tune against `test` until `dev` has been run against the local Neo4j snapshot.
+`retrieval/lexical.py` provides exact document/Điều/Khoản/Điểm lookup plus three Neo4j full-text indexes, one for each retrieval evidence level `Article`/`Clause`/`Point`. It retrieves each independently and merges their ranks with RRF, never raw cross-index scores. `build-lexical-index` is deliberately separate from `search-lexical`: the first creates all fixed indexes and waits for `ONLINE`; the second only reads indexes that have passed snapshot-count reconciliation. `evaluation/metrics.py` and `evaluation/runner.py` compute source-ID retrieval metrics and persist a reproducible generated report via `evaluate-r0`. The first live R0 report remains an explicit gate: do not claim retrieval quality or tune against `test` until `dev` has been run against the local Neo4j snapshot.
 
 ## Phase 3 implementation order
 

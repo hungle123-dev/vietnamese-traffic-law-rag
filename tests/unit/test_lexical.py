@@ -35,15 +35,33 @@ class _Driver:
             return (
                 [
                     _Record(
+                        name=name,
                         state="ONLINE",
-                        labelsOrTypes=["Part", "Chapter", "Section", "Article", "Clause", "Point"],
-                        properties=["snapshot_id", "document_id", "title", "text"],
+                        labelsOrTypes=[label],
+                        properties=properties,
                         options={
                             "indexConfig": {
                                 "fulltext.analyzer": self._analyzer,
                                 "fulltext.eventually_consistent": False,
                             }
                         },
+                    )
+                    for name, label, properties in (
+                        (
+                            "legal_articles_fts_v1",
+                            "Article",
+                            ["snapshot_id", "document_id", "title", "text"],
+                        ),
+                        (
+                            "legal_clauses_fts_v1",
+                            "Clause",
+                            ["snapshot_id", "document_id", "text"],
+                        ),
+                        (
+                            "legal_points_fts_v1",
+                            "Point",
+                            ["snapshot_id", "document_id", "text"],
+                        ),
                     )
                 ],
                 None,
@@ -67,30 +85,56 @@ class _Driver:
                 None,
             )
         if query.startswith("CALL db.index.fulltext.queryNodes"):
-            return (
-                [
-                    _Record(
-                        unit_id=f"{DOCUMENT_ID}::article::3::clause::1::point::a",
-                        document_id=DOCUMENT_ID,
-                        unit_type="point",
-                        title=None,
-                        text="Cảnh cáo.",
-                        source_url=SOURCE_URL,
-                        score=2.0,
-                    ),
-                    _Record(
-                        unit_id=f"{DOCUMENT_ID}::article::3::clause::1",
-                        document_id=DOCUMENT_ID,
-                        unit_type="clause",
-                        title=None,
-                        text="Hình thức xử phạt chính.",
-                        source_url=SOURCE_URL,
-                        score=1.0,
-                    ),
-                ],
-                None,
-                None,
-            )
+            index_name = cast(dict[str, object], passed)["index_name"]
+            if index_name == "legal_articles_fts_v1":
+                return (
+                    [
+                        _Record(
+                            unit_id=f"{DOCUMENT_ID}::article::3",
+                            document_id=DOCUMENT_ID,
+                            unit_type="article",
+                            title="Hình thức xử phạt.",
+                            text="Hình thức xử phạt.",
+                            source_url=SOURCE_URL,
+                            score=5.0,
+                        )
+                    ],
+                    None,
+                    None,
+                )
+            if index_name == "legal_clauses_fts_v1":
+                return (
+                    [
+                        _Record(
+                            unit_id=f"{DOCUMENT_ID}::article::3::clause::1",
+                            document_id=DOCUMENT_ID,
+                            unit_type="clause",
+                            title=None,
+                            text="Hình thức xử phạt chính.",
+                            source_url=SOURCE_URL,
+                            score=1.0,
+                        )
+                    ],
+                    None,
+                    None,
+                )
+            if index_name == "legal_points_fts_v1":
+                return (
+                    [
+                        _Record(
+                            unit_id=f"{DOCUMENT_ID}::article::3::clause::1::point::a",
+                            document_id=DOCUMENT_ID,
+                            unit_type="point",
+                            title=None,
+                            text="Cảnh cáo.",
+                            source_url=SOURCE_URL,
+                            score=2.0,
+                        )
+                    ],
+                    None,
+                    None,
+                )
+            raise AssertionError(f"unexpected index: {index_name}")
         raise AssertionError(f"unexpected query: {query}")
 
 
@@ -159,16 +203,40 @@ def test_exact_lookup_precedes_fulltext_and_keeps_its_lexical_rank() -> None:
     assert candidates[0].exact_rank == 1
     assert candidates[0].lexical_rank == 1
     assert candidates[0].lexical_score == 2.0
-    assert candidates[1].unit_type == "clause"
-    assert candidates[1].lexical_rank == 2
-    assert candidates[1].lexical_score == 1.0
+    assert candidates[0].lexical_rrf_score == pytest.approx(1 / 61)
+    assert candidates[1].unit_type == "article"
+    assert candidates[1].lexical_rank == 1
+    assert candidates[1].lexical_score == 5.0
+    assert candidates[2].unit_type == "clause"
+    assert candidates[2].lexical_score == 1.0
+    assert candidates[1].lexical_rrf_score == candidates[2].lexical_rrf_score
     assert not any(query.startswith("CREATE FULLTEXT INDEX") for query in driver.queries)
-    assert any(
+    fulltext_parameters = [
+        parameters
+        for parameters in driver.parameters
+        if isinstance(parameters.get("fulltext_query"), str)
+    ]
+    assert len(fulltext_parameters) == 3
+    assert all(
         isinstance(fulltext_query := parameters.get("fulltext_query"), str)
         and 'snapshot_id:"traffic-2026-08-13-v1"' in fulltext_query
         and 'document_id:"168/2024/NĐ-CP"' in fulltext_query
-        for parameters in driver.parameters
+        for parameters in fulltext_parameters
     )
+
+
+def test_builds_and_verifies_three_fulltext_indexes() -> None:
+    driver = _Driver()
+    status = Neo4jLexicalRetriever(cast(Driver, driver)).build_index(SNAPSHOT_ID, [_document()])
+
+    assert status.index_names == (
+        "legal_articles_fts_v1",
+        "legal_clauses_fts_v1",
+        "legal_points_fts_v1",
+    )
+    assert [
+        query.split()[3] for query in driver.queries if query.startswith("CREATE FULLTEXT INDEX")
+    ] == list(status.index_names)
 
 
 def test_build_rejects_a_graph_snapshot_with_the_wrong_unit_count() -> None:

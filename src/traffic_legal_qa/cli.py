@@ -617,7 +617,7 @@ def evaluate_r0(
                 _git_commit(),
             )
         destination = report_path or (
-            data_root / "evaluations" / f"{snapshot_id}.r0-lexical-{split}.json"
+            data_root / "evaluations" / f"{snapshot_id}.r0-lexical-3way-rrf-{split}.json"
         )
         write_evaluation_run(destination, run)
     except (

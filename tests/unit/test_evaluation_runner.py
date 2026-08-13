@@ -7,7 +7,7 @@ from traffic_legal_qa.evaluation.datasets import GoldQuestion
 from traffic_legal_qa.evaluation.runner import run_r0_lexical
 from traffic_legal_qa.retrieval.lexical import (
     LEXICAL_INDEX_FORMAT,
-    LEXICAL_INDEX_NAME,
+    LEXICAL_INDEX_NAMES,
     LexicalIndexStatus,
     Neo4jLexicalRetriever,
     RetrievalCandidate,
@@ -23,7 +23,7 @@ class _Retriever:
         self.verified = True
         return LexicalIndexStatus(
             snapshot_id="snapshot",
-            index_name=LEXICAL_INDEX_NAME,
+            index_names=LEXICAL_INDEX_NAMES,
             index_format=LEXICAL_INDEX_FORMAT,
             state="ONLINE",
             expected_unit_count=1,
@@ -78,5 +78,5 @@ def test_r0_evaluates_only_the_requested_frozen_split() -> None:
 
     assert retriever.verified
     assert retriever.queries == ["Question q-dev"]
-    assert run.run_id == "snapshot::r0-lexical::dev::aaaaaaaaaaaa"
+    assert run.run_id == "snapshot::r0-lexical-3way-rrf::dev::aaaaaaaaaaaa"
     assert run.evaluation.metrics.full_hit_count_at_10 == 1
