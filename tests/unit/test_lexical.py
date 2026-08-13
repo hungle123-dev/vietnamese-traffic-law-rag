@@ -19,10 +19,11 @@ class _Record(dict[str, object]):
 
 
 class _Driver:
-    def __init__(self, graph_unit_count: int = 3) -> None:
+    def __init__(self, graph_unit_count: int = 3, analyzer: str = "standard-no-stop-words") -> None:
         self.queries: list[str] = []
         self.parameters: list[dict[str, object]] = []
         self._graph_unit_count = graph_unit_count
+        self._analyzer = analyzer
 
     def execute_query(self, query: str, **parameters: object) -> tuple[list[_Record], None, None]:
         self.queries.append(query)
@@ -37,6 +38,12 @@ class _Driver:
                         state="ONLINE",
                         labelsOrTypes=["Part", "Chapter", "Section", "Article", "Clause", "Point"],
                         properties=["snapshot_id", "document_id", "title", "text"],
+                        options={
+                            "indexConfig": {
+                                "fulltext.analyzer": self._analyzer,
+                                "fulltext.eventually_consistent": False,
+                            }
+                        },
                     )
                 ],
                 None,
@@ -167,4 +174,11 @@ def test_build_rejects_a_graph_snapshot_with_the_wrong_unit_count() -> None:
     retriever = Neo4jLexicalRetriever(cast(Driver, _Driver(graph_unit_count=2)))
 
     with pytest.raises(LexicalIndexError, match="graph unit count"):
+        retriever.build_index(SNAPSHOT_ID, [_document()])
+
+
+def test_build_rejects_an_existing_index_with_the_wrong_analyzer() -> None:
+    retriever = Neo4jLexicalRetriever(cast(Driver, _Driver(analyzer="english")))
+
+    with pytest.raises(LexicalIndexError, match="does not match"):
         retriever.build_index(SNAPSHOT_ID, [_document()])

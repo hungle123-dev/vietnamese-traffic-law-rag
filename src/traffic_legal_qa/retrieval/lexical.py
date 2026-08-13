@@ -16,6 +16,7 @@ LEXICAL_INDEX_NAME: Final = "legal_units_fts_v1"
 LEXICAL_INDEX_FORMAT: Final = "neo4j-fulltext-v1"
 _INDEXED_LABELS: Final = ("Part", "Chapter", "Section", "Article", "Clause", "Point")
 _INDEXED_PROPERTIES: Final = ("snapshot_id", "document_id", "title", "text")
+_FULLTEXT_ANALYZER: Final = "standard-no-stop-words"
 _UNIT_TYPES: Final = frozenset(("part", "chapter", "section", "article", "clause", "point"))
 _TOKEN = re.compile(r"\w+", re.UNICODE)
 _ARTICLE = re.compile(r"\bdieu\s+(\d+[a-z]?)\b")
@@ -182,9 +183,9 @@ class Neo4jLexicalRetriever:
         deadline = time.monotonic() + wait_seconds
         while True:
             record = self._one(
-                "SHOW FULLTEXT INDEXES YIELD name, state, labelsOrTypes, properties "
+                "SHOW FULLTEXT INDEXES YIELD name, state, labelsOrTypes, properties, options "
                 "WHERE name = $index_name "
-                "RETURN state, labelsOrTypes, properties",
+                "RETURN state, labelsOrTypes, properties, options",
                 index_name=LEXICAL_INDEX_NAME,
             )
             if record is None:
@@ -375,6 +376,8 @@ def _fold(value: str) -> str:
 def _validate_index_schema(record: Record) -> None:
     labels = record["labelsOrTypes"]
     properties = record["properties"]
+    options = record["options"]
+    index_config = options.get("indexConfig") if isinstance(options, dict) else None
     if (
         not isinstance(labels, list)
         or not all(isinstance(label, str) for label in labels)
@@ -382,8 +385,11 @@ def _validate_index_schema(record: Record) -> None:
         or not all(isinstance(property_name, str) for property_name in properties)
         or set(labels) != set(_INDEXED_LABELS)
         or set(properties) != set(_INDEXED_PROPERTIES)
+        or not isinstance(index_config, dict)
+        or index_config.get("fulltext.analyzer") != _FULLTEXT_ANALYZER
+        or index_config.get("fulltext.eventually_consistent") is not False
     ):
-        raise LexicalIndexError("full-text index schema does not match the retrieval contract")
+        raise LexicalIndexError("full-text index does not match the retrieval contract")
 
 
 def _candidate_from_record(
