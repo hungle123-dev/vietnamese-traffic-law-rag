@@ -4,7 +4,7 @@ Blueprint cho một sản phẩm tra cứu và hỏi đáp pháp luật giao th�
 
 ## Trạng thái
 
-Code hiện có gồm ingestion, **structural Neo4j graph**, contract kiểm chứng artifact `AMENDS`, và 30 retrieval gold citations được source-verify cho draft snapshot 12 văn bản: raw immutable, normalized text, parsed hierarchy, manifest, quality report, metadata portal, node/edge graph và reconciliation command. Blueprint còn hybrid retrieval, rerank, generation có citation, cache và monitoring; các lớp đó chưa được scaffold giả tạo trước phase của chúng. Snapshot chưa được promote: chưa có index/evaluation gate, gold questions hay relation record được người review pháp lý phê duyệt.
+Code hiện có gồm ingestion, **structural Neo4j graph**, contract kiểm chứng artifact `AMENDS`, 30 retrieval gold citations được source-verify, và R0 exact-plus-lexical retrieval/evaluator cho draft snapshot 12 văn bản: raw immutable, normalized text, parsed hierarchy, manifest, quality report, metadata portal, node/edge graph, full-text index contract và reconciliation command. Dense retrieval, hybrid fusion, rerank, generation có citation, cache và monitoring chưa được scaffold trước phase của chúng. Snapshot chưa được promote: cần báo cáo R0 chạy trên Neo4j, các baseline tiếp theo, và gold/relation record được người review pháp lý phê duyệt.
 
 ## Product đã chốt
 
@@ -46,7 +46,17 @@ $env:NEO4J_PASSWORD = Read-Host "Neo4j password"
 docker compose up --detach --wait
 uv run traffic-legal-qa import-graph --snapshot-id traffic-2026-08-13-v1
 uv run traffic-legal-qa verify-graph --snapshot-id traffic-2026-08-13-v1
+uv run traffic-legal-qa build-lexical-index --snapshot-id traffic-2026-08-13-v1
+uv run traffic-legal-qa search-lexical `
+  --snapshot-id traffic-2026-08-13-v1 `
+  --query "Theo 168/2024/NĐ-CP, Điều 3 khoản 1 điểm a là gì?"
+uv run traffic-legal-qa evaluate-r0 `
+  --snapshot-id traffic-2026-08-13-v1 `
+  --gold-set data/gold/traffic-2026-08-13-v1.source-verified.json `
+  --split dev
 ```
+
+`build-lexical-index` là bước offline và kiểm tra Neo4j có đúng 6.433 legal units của snapshot. `search-lexical` chỉ đọc index đã `ONLINE`; nó không tự tạo index trên query path. Chỉ chạy `evaluate-r0 --split test` sau khi đã chốt mọi quyết định R0 bằng dev; report sinh ra ở `data/evaluations/` không được commit.
 
 Sau khi một curator phê duyệt relation artifact, kiểm chứng nó trước rồi truyền cùng artifact cho cả import và verify:
 

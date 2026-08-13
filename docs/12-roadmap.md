@@ -43,8 +43,8 @@ The roadmap is gate-based. A phase does not advance because a feature looks inte
 - Neo4j import with explicit legal labels, `HAS_*` hierarchy edges, portal metadata nodes, constraints, and snapshot tagging.
 - Validate and import only approved `AMENDS` records with reviewer identity, provenance, raw-hash/URL binding, `amendment_type`, and evidence properties.
 - Write 30 pilot questions with gold document/unit citations before selecting retrieval configuration. The current source-verified artifact has 15 dev and 15 test questions; human legal review is a later promotion gate.
-- Exact lookup, lexical retrieval, dense retrieval, and retrieval-only API.
-- Evaluation runner for R0, R1, and R2.
+- Exact lookup and Neo4j lexical retrieval with an explicit offline index build, then dense retrieval and a retrieval-only API.
+- Evaluation runner for R0, then R1 and R2 once their retrievers exist.
 
 ### Exit gate
 

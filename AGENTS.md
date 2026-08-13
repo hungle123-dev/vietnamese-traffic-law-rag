@@ -20,6 +20,9 @@
 | Validate retrieval gold set | `uv run traffic-legal-qa validate-gold-set --snapshot-id <id> --gold-set <file>` |
 | Import graph | `uv run traffic-legal-qa import-graph --snapshot-id <id> [--relation-artifact <file>]` |
 | Verify graph | `uv run traffic-legal-qa verify-graph --snapshot-id <id> [--relation-artifact <file>]` |
+| Build lexical index | `uv run traffic-legal-qa build-lexical-index --snapshot-id <id>` |
+| Search R0 lexical | `uv run traffic-legal-qa search-lexical --snapshot-id <id> --query <query>` |
+| Evaluate R0 | `uv run traffic-legal-qa evaluate-r0 --snapshot-id <id> --gold-set <file> --split dev` |
 
 ## Ingestion Contract
 
@@ -31,8 +34,8 @@
 
 ## Scope
 
-- The implemented foundation is portal ingestion, artifacts, hierarchy parsing, reports, structural Neo4j projection, Phase 2B relation-artifact validation, and Phase 2C retrieval-gold-set validation; retrieval, QA, cache, and UI remain target phases.
-- `import-graph` and `verify-graph` require `NEO4J_PASSWORD`; start the pinned `compose.yaml` service first. An `AMENDS` edge requires an explicit approved relation artifact whose source, target, evidence, raw hash, URL, provenance, and reviewer all resolve.
+- The implemented foundation is portal ingestion, artifacts, hierarchy parsing, reports, structural Neo4j projection, Phase 2B relation-artifact validation, Phase 2C retrieval-gold-set validation, and Phase 2D R0 exact-plus-lexical retrieval/evaluation code. Dense, hybrid, QA, cache, and UI remain target phases.
+- `import-graph`, `verify-graph`, `build-lexical-index`, `search-lexical`, and `evaluate-r0` require `NEO4J_PASSWORD`; start the pinned `compose.yaml` service first. Build the full-text index explicitly before any search or evaluation; the query path never creates it. An `AMENDS` edge requires an explicit approved relation artifact whose source, target, evidence, raw hash, URL, provenance, and reviewer all resolve.
 - Do not scaffold a future service. Add retrieval, QA, cache, or UI only in its documented phase with its contract and focused check.
 - `data/gold/` is tracked. A gold-set row must resolve its document and provision IDs through `validate-gold-set`; `source_verified` is not human legal approval and cannot authorize a temporal or validity conclusion.
 - Update `docs/03-data-and-ingestion.md` and `docs/14-implementation-blueprint.md` when an artifact or pipeline contract changes.

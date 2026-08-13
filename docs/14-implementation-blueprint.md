@@ -108,7 +108,7 @@ Import deterministic hierarchy as explicit `Part`, `Chapter`, `Section`, `Articl
     cli.py: import-graph, verify-graph
     tests/unit/test_graph_importer.py
 
-At the Phase 2A release, the importer reused `_validated_snapshot`, created constraints, and projected only `Document`, portal metadata, `Snapshot`, and hierarchy labels/edges before reconciling counts. Phase 2B extends that same importer with an explicit relation gate; retrieval, embedding, and index code remain absent.
+At the Phase 2A release, the importer reused `_validated_snapshot`, created constraints, and projected only `Document`, portal metadata, `Snapshot`, and hierarchy labels/edges before reconciling counts. The subsequent Phase 2B release added the explicit relation gate; retrieval, embedding, and index code were still absent at that point.
 
 ### Phase 2B delivered: relation gate, not legal-fact promotion
 
@@ -117,6 +117,10 @@ At the Phase 2A release, the importer reused `_validated_snapshot`, created cons
 ### Phase 2C delivered: source-verified retrieval targets
 
 `evaluation/datasets.py` defines one small, immutable retrieval-gold artifact and resolves every gold document/unit locator against `_validated_snapshot`. `data/gold/traffic-2026-08-13-v1.source-verified.json` is tracked because it is curation input, unlike generated parsed artifacts. The CLI command `validate-gold-set` reports its count, split, taxonomy, and review-status counts. It stores no generated answer and makes no legal-effect claim; `source_verified` is intentionally weaker than human approval. The 30 questions are split 15 dev / 15 test, and each base/amendment family remains in a single split.
+
+### Phase 2D delivered: measured R0 lexical baseline code
+
+`retrieval/lexical.py` provides exact document/Điều/Khoản/Điểm lookup plus a single Neo4j full-text adapter. `build-lexical-index` is deliberately separate from `search-lexical`: the first creates the fixed full-text index and waits for `ONLINE`; the second only reads an index that has already passed snapshot-count reconciliation. `evaluation/metrics.py` and `evaluation/runner.py` compute source-ID retrieval metrics and persist a reproducible generated report via `evaluate-r0`. The first live R0 report remains an explicit gate: do not claim retrieval quality or tune against `test` until `dev` has been run against the local Neo4j snapshot.
 
 ## Phase 3 implementation order
 

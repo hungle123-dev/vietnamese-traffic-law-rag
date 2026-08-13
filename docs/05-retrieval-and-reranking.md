@@ -63,6 +63,12 @@ If the question contains a document ID or provision reference, attempt determini
 
 Full-text or BM25 retrieval is mandatory because it handles document IDs, article numbers, rare terms, and legal phrasing well.
 
+#### Current R0 contract
+
+R0 is implemented with one Neo4j full-text index named `legal_units_fts_v1` over `snapshot_id`, `document_id`, `title`, and `text` on legal-unit labels `Part` through `Point`. The Lucene query constrains `snapshot_id` before ranking and Cypher checks it again after retrieval. `build-lexical-index` is an offline command: it waits for `ONLINE`, validates the fixed index schema, and checks the projected unit count against the frozen parsed snapshot. The request-facing `search-lexical` command only verifies the already-built index; it never creates or rebuilds one.
+
+R0 normalizes Unicode/whitespace and rejects blank, overlong queries. When the query contains a known document identifier plus Điều/Khoản/Điểm, deterministic lookup returns that provision first; Neo4j full-text retrieval then fills the remaining bounded candidate list. Each result records exact rank (when present), lexical rank/score, `unit_id`, `document_id`, snapshot, source URL, unit type, title/text, and `validity: unknown`. R0 intentionally has no dense retrieval, validity decision, cache, graph expansion, reranker, or answer generation.
+
 ### Dense retrieval
 
 Dense retrieval handles paraphrases between everyday Vietnamese questions and formal legal language. The chosen embedding model must be benchmarked on the project gold set, not selected from leaderboard reputation alone.
@@ -114,6 +120,8 @@ A low signal results in clarification or abstention, not an invented answer.
 | R5 | Yes | Yes | Yes | Yes | Yes | Yes |
 
 All rows use the same snapshot and held-out questions. A comparison that changes multiple variables is not evidence for a component.
+
+For the current pilot, `evaluate-r0` writes a source-ID-only report for exactly one frozen split. It records macro unit/document Recall@1/3/5/10, MRR@10, full/partial/miss at 10, per-question ranked IDs, snapshot, full-text index contract, gold-file SHA-256, git commit, and timestamp. R0 parameters may be selected only on `dev`; run `test` once those parameters are frozen.
 
 ## Deferred complexity
 

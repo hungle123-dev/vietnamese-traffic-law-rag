@@ -38,13 +38,13 @@ Paraphrases with the same intent and gold units stay in one split. Temporal vers
 
 ### Retrieval
 
-- unit and document Recall at 1, 3, 5, and 10;
-- MRR;
+- macro unit and document Recall at 1, 3, 5, and 10;
+- MRR@10;
 - nDCG when graded labels exist;
 - validity-aware recall;
 - exact-identifier lookup accuracy.
 
-Report macro and micro scores and inspect query categories separately.
+The current R0 evaluator reports macro scores and per-question full/partial/miss evidence. Add micro metrics only with a documented reason and retain the macro metrics for comparison. Inspect query categories separately, but do not publish per-type scores for a category with too few held-out questions.
 
 ### Citation and answer
 
@@ -117,3 +117,5 @@ If a target is missed, report the root-cause analysis and limitation rather than
     metric_version
     git_commit
     timestamp
+
+The R0 report currently persists the equivalent concrete fields: run ID, snapshot ID, frozen split, gold-file SHA-256, git commit, creation time, fixed lexical-index name/format/state/counts, retrieval configuration, aggregate metrics, and ranked source IDs per question. It deliberately stores no generated answer or LLM-judge score.
