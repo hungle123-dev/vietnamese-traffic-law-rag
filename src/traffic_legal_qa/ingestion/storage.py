@@ -20,6 +20,7 @@ class _ManifestDocument(TypedDict):
     parsed_path: str
     normalizer_version: str
     parser_version: str
+    artifact_version: str
 
 
 class _Manifest(TypedDict):
@@ -84,6 +85,7 @@ class ArtifactStore:
                 "parsed_path": parsed_path.relative_to(self._root).as_posix(),
                 "normalizer_version": parsed.normalizer_version,
                 "parser_version": parsed.parser_version,
+                "artifact_version": parsed.artifact_version,
             }
         )
         manifest: _Manifest = {
@@ -142,6 +144,7 @@ class ArtifactStore:
                     "parsed_path": str(item["parsed_path"]),
                     "normalizer_version": str(item["normalizer_version"]),
                     "parser_version": str(item["parser_version"]),
+                    "artifact_version": str(item.get("artifact_version", "1")),
                 }
             )
         return {"snapshot_id": snapshot_id, "documents": documents}

@@ -39,6 +39,10 @@ def test_parse_detail_response_maps_a_validated_portal_record() -> None:
 
     assert detail.metadata.document_id == "168/2024/NĐ-CP"
     assert detail.metadata.status == "current"
+    assert detail.metadata.portal_document_type == "Nghị định"
+    assert detail.metadata.fields == ("Đường bộ",)
+    assert detail.metadata.issuing_organs == ("Chính phủ",)
+    assert detail.metadata.signers[0].name == "Trần Hồng Hà"
     assert detail.metadata.effective_to is None
     assert detail.metadata.content_sha256
     assert detail.title_matches_expected is True

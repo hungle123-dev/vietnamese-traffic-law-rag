@@ -10,12 +10,14 @@ This document records the v1 decisions and their revisit triggers. A decision is
 | ADR-002 | Use structured legal units as canonical evidence | Accepted |
 | ADR-003 | Use the National Legal Portal structured HTML contract | Accepted |
 | ADR-004 | Use a curated GUID catalog and versioned snapshots | Accepted |
-| ADR-005 | Start with Neo4j for graph, lexical, and vector indexes | Accepted |
+| ADR-005 | Start with Neo4j and an explicit legal-label graph projection | Accepted |
 | ADR-006 | Use hybrid lexical plus dense retrieval with RRF | Accepted |
 | ADR-007 | Make validity deterministic metadata and graph logic | Accepted |
 | ADR-008 | Use fixed retrieval orchestration, not default agents | Accepted |
 | ADR-009 | Verify structured citations after generation | Accepted |
 | ADR-010 | Measure retrieval and citation before answer fluency | Accepted |
+| ADR-011 | Keep generic parsed artifacts but explicit Neo4j legal labels | Accepted |
+| ADR-012 | Scope caches to immutable snapshot and configuration | Accepted |
 
 ## ADR-001: Narrow traffic domain
 
@@ -63,7 +65,7 @@ This document records the v1 decisions and their revisit triggers. A decision is
 
 **Context:** Hierarchy and legal relations are central, while v1 corpus and traffic are small.
 
-**Decision:** Use Neo4j as the initial graph plus lexical/vector index store.
+**Decision:** Use Neo4j as the initial graph plus lexical/vector index store. Project parsed units to explicit `Part`, `Chapter`, `Section`, `Article`, `Clause`, and `Point` labels with `HAS_*` edges; import portal metadata labels and approved `AMENDS` edges.
 
 **Trade-off:** It may not be the fastest specialized engine at larger scale.
 
@@ -118,3 +120,23 @@ This document records the v1 decisions and their revisit triggers. A decision is
 **Trade-off:** Requires reviewed questions and manual analysis.
 
 **Revisit:** A domain-expert benchmark broad enough to calibrate additional metrics becomes available.
+
+## ADR-011: Generic artifact, explicit graph projection
+
+**Context:** Parsing needs a stable, compact JSON contract, while graph traversal and demo inspection benefit from explicit labels like `Article` and `Clause`.
+
+**Decision:** Persist a generic `LegalUnit` artifact with `unit_type`, then deterministically project it to explicit Neo4j labels. The projection does not infer legal structure or create LLM-derived entities.
+
+**Trade-off:** The importer maps types to labels, but parsed artifacts stay independent of Neo4j and can be rebuilt from raw bytes.
+
+**Revisit:** Only if another durable graph backend needs a genuinely different projection.
+
+## ADR-012: Snapshot-scoped cache
+
+**Context:** Repeated queries dominate latency and LLM cost, but a cached answer can become unsafe when the active snapshot or policy changes.
+
+**Decision:** Cache only keys that include snapshot, effective date, filters, retrieval configuration, and prompt/safety version. Start in-process; add Redis only when multiple API instances or measured eviction needs require it.
+
+**Trade-off:** Fewer cache hits than a loose semantic cache, but no cross-snapshot legal answer leak.
+
+**Revisit:** Measurements show the scoped cache is insufficient for the stated latency/cost target.

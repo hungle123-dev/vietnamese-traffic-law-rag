@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
 CorpusStatus = Literal["current", "repealed", "amended", "unknown"]
 UnitType = Literal["part", "chapter", "section", "article", "clause", "point"]
@@ -76,6 +76,34 @@ class PortalEffectStatus(BaseModel):
     _validate_name = field_validator("name")(_require_text)
 
 
+class PortalNamedEntity(BaseModel):
+    """A named metadata entity exposed by the current portal detail response."""
+
+    model_config = ConfigDict(populate_by_name=True, extra="ignore", frozen=True)
+
+    name: str = Field(
+        validation_alias=AliasChoices("docTypeName", "fieldName", "majorName", "organName")
+    )
+
+    _validate_name = field_validator("name")(_require_text)
+
+
+class PortalSigner(BaseModel):
+    """A signer and optional role as published by the portal."""
+
+    model_config = ConfigDict(populate_by_name=True, extra="ignore", frozen=True)
+
+    name: str = Field(alias="signerName")
+    job_title: str | None = Field(default=None, alias="jobTitleName")
+
+    _validate_name = field_validator("name")(_require_text)
+
+    @field_validator("job_title", mode="before")
+    @classmethod
+    def _empty_job_title_is_none(cls, value: object) -> object:
+        return None if value == "" else value
+
+
 class PortalDocumentData(BaseModel):
     """Only the portal fields needed by the ingestion contract."""
 
@@ -89,6 +117,11 @@ class PortalDocumentData(BaseModel):
     effective_from: date | None = Field(default=None, alias="effectDate")
     effective_to: date | None = Field(default=None, alias="expireDate")
     effect_status: PortalEffectStatus | None = Field(default=None, alias="effectStatus")
+    document_type_metadata: PortalNamedEntity | None = Field(default=None, alias="docType")
+    fields: tuple[PortalNamedEntity, ...] = Field(default_factory=tuple)
+    majors: tuple[PortalNamedEntity, ...] = Field(default_factory=tuple)
+    issuing_organs: tuple[PortalNamedEntity, ...] = Field(default_factory=tuple, alias="organs")
+    signers: tuple[PortalSigner, ...] = Field(default_factory=tuple)
 
     _validate_text = field_validator("document_guid", "document_id", "title", "html")(_require_text)
 
@@ -115,7 +148,12 @@ class CanonicalMetadata(BaseModel):
     portal_document_guid: str
     title: str
     document_type: str
+    portal_document_type: str | None = None
     issuer: str | None = None
+    fields: tuple[str, ...] = ()
+    majors: tuple[str, ...] = ()
+    issuing_organs: tuple[str, ...] = ()
+    signers: tuple[PortalSigner, ...] = ()
     issued_date: date | None = None
     effective_from: date | None = None
     effective_to: date | None = None
@@ -159,6 +197,7 @@ class ParsedDocument(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
+    artifact_version: Literal["2"]
     metadata: CanonicalMetadata
     normalizer_version: str
     parser_version: str

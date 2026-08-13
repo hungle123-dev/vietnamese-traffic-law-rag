@@ -9,11 +9,11 @@ POST /api/legal-documents
 GET  /api/legal-documents/detail?docGUId={guid}&tabName=noidung
 ```
 
-As observed on 2026-08-12, search returns candidates at `data.docs` and its total at `data.rowCount`. Detail returns an envelope with `success`, `data`, and `tabName`; metadata and HTML are at `data.docIdentity`, `data.docName`, and `data.docContent`. This is an undocumented UI-backed API, not a stable developer contract. The client therefore uses normal HTTPS verification, bounded timeout and response size, explicit schema validation, and regression fixtures. It never disables transport verification.
+As observed on 2026-08-13, search returns candidates at `data.docs` and its total at `data.rowCount`. Detail returns an envelope with `success`, `data`, and `tabName`; metadata and HTML are at `data.docIdentity`, `data.docName`, and `data.docContent`. This is an undocumented UI-backed API, not a stable developer contract. The client therefore uses normal HTTPS verification, bounded timeout and response size, explicit schema validation, and regression fixtures. It never disables transport verification.
 
 ## Discovery request contract
 
-The following search body was observed from the portal interface on 2026-08-12. It is a **discovery-only** contract: take candidate GUIDs from its result, then let a curator approve a catalog entry before any detail fetch.
+The following search body was observed from the portal interface on 2026-08-13. It is a **discovery-only** contract: take candidate GUIDs from its result, then let a curator approve a catalog entry before any detail fetch.
 
 ```json
 {
@@ -76,7 +76,7 @@ For each approved catalog entry, the pipeline:
 1. fetches detail by stored GUID with `tabName=noidung`;
 2. stores exact bounded response bytes as content-addressed raw JSON in quarantine;
 3. validates `success == true` and non-empty `data.docIdentity`, `data.docName`, and `data.docContent`, then requires `data.docIdentity` to equal the catalog's `expected_document_id`;
-4. maps portal fields to canonical metadata;
+4. maps portal fields to canonical metadata, including `docType`, `effectStatus`, `fields`, `majors`, `organs`, and `signers` when present;
 5. converts `docContent` HTML to normalized text;
 6. applies only catalogued, curator-approved literal corrections whose exact expected match count succeeds; and
 7. parses and validates legal hierarchy.
@@ -89,7 +89,12 @@ Canonical metadata:
   "portal_document_guid": "...",
   "title": "...",
   "document_type": "law|decree|circular|decision|other",
+  "portal_document_type": "Nghị định|null",
   "issuer": "...",
+  "fields": ["Đường bộ"],
+  "majors": ["Giao thông Vận tải"],
+  "issuing_organs": ["Chính phủ"],
+  "signers": [{"name": "...", "job_title": "..."}],
   "issued_date": "YYYY-MM-DD|null",
   "effective_from": "YYYY-MM-DD|null",
   "effective_to": "YYYY-MM-DD|null",
@@ -121,7 +126,8 @@ reports/{run_id}.json
 - Raw bytes are immutable and deduplicated by SHA-256.
 - The raw receipt records the first UTC retrieval timestamp for that raw hash. Rebuilds reuse it; a run timestamp never mutates a parsed artifact.
 - Normalized text is reproducible from raw JSON, a normalizer version, and the versioned catalogued corrections. A correction preserves the raw bytes, states an HTTPS evidence URL and reason, and blocks ingestion if its literal match count changes.
-- Parsed documents store parser version and stable unit IDs. Version 2 preserves quoted amendment text within its outer unit instead of misclassifying the quoted target's headings, and stops the main hierarchy at `PHỤ LỤC`; appendix/form parsing is explicitly deferred.
+- Parsed documents store parser version, `artifact_version`, and stable unit IDs. Parser version 2 preserves quoted amendment text within its outer unit instead of misclassifying the quoted target's headings, and stops the main hierarchy at `PHỤ LỤC`; appendix/form parsing is explicitly deferred. Parsed artifact version 2 adds the portal metadata needed by the graph projection.
+- `rebuild-snapshot` re-derives parsed/manifest artifacts from the immutable raw hashes already pinned by a draft manifest. It performs no network request and preserves the original receipt timestamp.
 - A manifest contains only validated parsed artifacts; a raw fetch alone is not corpus membership.
 - Schema-invalid raw responses remain quarantined for drift diagnosis and are never exposed as search or QA evidence.
 - Quarantine is a run/manifest classification of the one immutable raw artifact, not a second copy of its bytes.
@@ -129,7 +135,7 @@ reports/{run_id}.json
 
 ## Curated relation artifact
 
-Cross-document legal relations are a separate reviewed dataset, analogous to the parsed-document artifacts. Portal fields such as `data.docRelateEffects` and `data.docListRelates` may nominate candidates, but neither field creates a public graph edge by itself.
+Cross-document legal relations are a separate reviewed dataset, analogous to the parsed-document artifacts. Portal fields such as `data.docRelateEffects` and `data.docListRelates` may nominate candidates, but neither field creates a legal graph edge by itself. The current 12-document raw snapshot has both fields present but empty, so it yields no portal `RELATED_TO` edges.
 
 ```json
 {
@@ -138,6 +144,7 @@ Cross-document legal relations are a separate reviewed dataset, analogous to the
     {
       "relation_id": "traffic-...::amends::001",
       "relation_type": "AMENDS",
+      "amendment_type": "sửa đổi|bổ sung|bãi bỏ|thay thế|sửa đổi, bổ sung",
       "source": {
         "document_id": "168/2024/NĐ-CP",
         "unit_id": "168/2024/NĐ-CP::article::52::clause::1"
@@ -146,8 +153,6 @@ Cross-document legal relations are a separate reviewed dataset, analogous to the
         "document_id": "100/2019/NĐ-CP",
         "unit_id": "100/2019/NĐ-CP::article::1::clause::2a"
       },
-      "effective_from": "2025-01-01",
-      "effective_to": null,
       "evidence_unit_id": "168/2024/NĐ-CP::article::52::clause::1",
       "source_url": "https://phapluat.gov.vn/<verified-public-document-page>",
       "raw_sha256": "...",
@@ -159,7 +164,7 @@ Cross-document legal relations are a separate reviewed dataset, analogous to the
 }
 ```
 
-Allowed `relation_type` values are `AMENDS`, `REPEALS`, `REPLACES`, and `REFERENCES`. `source.unit_id` and `target.unit_id` may be null only for a document-level relation; `evidence_unit_id`, `source_url`, and `raw_sha256` are required for every approved relation. The importer accepts only `approved` records whose referenced documents and units resolve inside the draft snapshot.
+`AMENDS` is the one legal-change edge; `amendment_type` retains the precise source wording instead of splitting it into ambiguous edge types. `source.unit_id` and `target.unit_id` may be null only for a reviewed document-level relation; `evidence_unit_id`, `source_url`, `raw_sha256`, `snapshot_id`, and `review_status: approved` are required for every imported edge. The importer accepts only approved records whose referenced documents and units resolve inside the draft snapshot. A future portal `RELATED_TO` edge carries `provenance: portal` and is excluded from validity and legal inference.
 
 ## Normalization and hierarchy
 
@@ -177,14 +182,14 @@ Validation rejects empty units, duplicate IDs, missing parents, and malformed pa
 
 ```text
 catalogued → fetched → raw_stored → normalized → parsed → validated
-→ manifested → embedded → indexed → smoke_tested → promoted
+→ manifested → graph_projected → embedded → indexed → smoke_tested → evaluated → promoted
 ```
 
 Failures record an error code, timestamp, and raw artifact when available. No partial snapshot can be promoted.
 
 ## Data quality report
 
-The Phase 1 snapshot report records catalog hash/count, source GUID/status, raw hash, document/article/clause/point counts, unknown **source-status** count, manifest hash, and parser/normalizer versions. A failed batch prints its per-document errors and cannot be promoted; run-history storage, relation status, and legal-validity counts begin only when those artifacts exist in later phases.
+The Phase 1 snapshot report records catalog hash/count, source GUID/status, raw hash, document/article/clause/point counts, portal-metadata coverage by document, unknown **source-status** count, manifest hash, parsed-artifact/parser/normalizer versions. A failed batch prints its per-document errors and cannot be promoted; run-history storage, relation status, and legal-validity counts begin only when those artifacts exist in later phases.
 
 ## Non-structured content policy
 
@@ -192,7 +197,7 @@ The v1 ingestion contract accepts only complete readable structured HTML from th
 
 ## Acceptance gates
 
-- One saved portal fixture passes schema, normalization, and parser tests.
+- One saved portal fixture passes schema, normalization, parser, and graph-ready metadata tests.
 - Rebuilding from identical raw bytes yields identical hash and unit IDs.
 - Every promoted document has public URL, raw hash, portal GUID, and curator status.
 - A portal contract change fails before parsing and promotion.

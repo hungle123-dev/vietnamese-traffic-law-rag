@@ -17,7 +17,7 @@
 
 - The raw portal response is immutable and SHA-256 addressed.
 - A manifest includes only validated parsed content.
-- Parser, normalizer, schema, catalog, and snapshot versions are recorded.
+- Parser, parsed-artifact, normalizer, schema, catalog, and snapshot versions are recorded.
 - Cross-document legal relations require provenance and review.
 - Index build occurs outside the public request path.
 - Promotion is atomic; the previous promoted snapshot remains rollbackable.
@@ -69,6 +69,7 @@ Raw questions and answers are not logged by default. Debug capture requires an e
 - parser validation failure rate;
 - active snapshot age;
 - retrieval candidate count and retriever agreement;
+- answer/retrieval cache hit rate and cache-bypass reason;
 - p50/p95 timings and dependency errors;
 - token usage and estimated cost;
 - ingestion run status and promotion/rollback count.

@@ -77,6 +77,6 @@ timestamp
 - Do not add a database, queue, or service until the relevant phase has measured a need.
 - The product uses a single structured-content ingestion contract.
 
-## Ready-for-code gate
+## Next implementation gate
 
-The full Phase 1 data foundation opens only after all of the following exist: a seed catalog of about 12 verified portal GUIDs; 30 pilot questions with gold citations; sanitized HTML fixtures; and signed-off Phase 0 criteria. A single non-promoted technical smoke seed may validate the portal and parser contracts, but it does not satisfy this gate. See [12-roadmap.md](12-roadmap.md).
+The structural graph phase opens after the catalogued snapshot validates, its parsed artifact version is current, and the graph projection contract is approved. Thirty pilot questions with gold citations are required before claiming retrieval quality or choosing fusion/rerank configuration; they do **not** block importing the deterministic hierarchy and portal metadata graph. See [12-roadmap.md](12-roadmap.md).

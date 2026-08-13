@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from typing import Final
 from urllib import error, request
@@ -15,6 +16,7 @@ from traffic_legal_qa.ingestion.models import (
     CorpusStatus,
     PortalDetail,
     PortalDetailEnvelope,
+    PortalNamedEntity,
     ReviewedSource,
 )
 
@@ -67,6 +69,17 @@ def _document_type(document_id: str) -> str:
     return "other"
 
 
+def _names(*groups: Iterable[PortalNamedEntity]) -> tuple[str, ...]:
+    """Keep portal lists deterministic while preserving their displayed names."""
+
+    names: list[str] = []
+    for group in groups:
+        for item in group:
+            if item.name not in names:
+                names.append(item.name)
+    return tuple(names)
+
+
 def parse_detail_response(
     raw_bytes: bytes,
     source: ReviewedSource,
@@ -88,11 +101,20 @@ def parse_detail_response(
         raise PortalIdentityMismatch("portal document identity differs from reviewed catalog entry")
 
     source_effect_status = document.effect_status.name if document.effect_status else None
+    issuing_organs = _names(document.issuing_organs)
     metadata = CanonicalMetadata(
         document_id=document.document_id,
         portal_document_guid=document.document_guid,
         title=document.title,
         document_type=_document_type(document.document_id),
+        portal_document_type=(
+            document.document_type_metadata.name if document.document_type_metadata else None
+        ),
+        issuer=issuing_organs[0] if issuing_organs else None,
+        fields=_names(document.fields),
+        majors=_names(document.majors),
+        issuing_organs=issuing_organs,
+        signers=document.signers,
         issued_date=document.issued_date,
         effective_from=document.effective_from,
         effective_to=document.effective_to,

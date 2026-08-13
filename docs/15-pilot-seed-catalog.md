@@ -24,9 +24,9 @@ For every proposed record, a direct request to the portal detail endpoint on 202
 4. `data.docName` and HTML `data.docContent` were non-empty.
 5. The public UI route used by the portal frontend—`/legal-documents/{docGUId}?tabName=noidung`—returned HTTP `200` for every record.
 
-Vietnamese JSON was decoded from UTF-8 bytes before validation. The public route is client-rendered: a headless browser was blocked by the portal WAF, so title and content identity are verified through the same first-party detail API used by the UI, not inferred from the SSR shell. The portal's relation fields were empty for the amendment documents checked, so they are not used as graph evidence.
+Vietnamese JSON was decoded from UTF-8 bytes before validation. The public route is client-rendered: a headless browser was blocked by the portal WAF, so title and content identity are verified through the same first-party detail API used by the UI, not inferred from the SSR shell. The portal's relation fields were empty across all 12 checked documents, so they are not used as graph evidence.
 
-The technical verification above is separate from legal-relation approval. Curator approval, public-page URLs, and any reviewed literal corrections are recorded in the version-controlled catalog; provision-level relation evidence is still required before any graph edge or temporal answer is allowed.
+The technical verification above is separate from legal-relation approval. Curator approval, public-page URLs, and any reviewed literal corrections are recorded in the version-controlled catalog; provision-level relation evidence is still required before a legal-change edge or temporal answer is allowed. Deterministic hierarchy and portal-metadata graph projection do not depend on it.
 
 ## Approved pilot documents
 
@@ -73,10 +73,10 @@ The following are title-supported **document-level candidates** only. They must 
 
 | Candidate | Seed-level provision evidence | What it does **not** establish yet | State |
 |---|---|---|---|
-| `238/2026/NĐ-CP → 168/2024/NĐ-CP` | Source Article 1 changes points of clause 3, Article 3; target Article 3 and clause 3 exist in `168`. | The complete set of amended provisions and their final validity. | `seed_relation_reviewed` |
-| `241/2026/NĐ-CP → 165/2024/NĐ-CP` | Source Article 1 changes Article 4; target Article 4 exists in `165`. | The complete set of amended provisions and their final validity. | `seed_relation_reviewed` |
-| `236/2026/NĐ-CP → 151/2024/NĐ-CP` | Source Article 1 changes clause 1, Article 9; target Article 9 and clause 1 exist in `151`. | The complete set of amended provisions and the role of `184/2025/NĐ-CP` in each target provision. | `seed_relation_reviewed` |
-| `218/2026/NĐ-CP → 158/2024/NĐ-CP` | Source Article 1 changes point a, clause 6, Article 4; the target article and clause exist in `158`. | The complete set of amended provisions and their final validity. | `seed_relation_reviewed` |
+| `238/2026/NĐ-CP → 168/2024/NĐ-CP` | Source Article 1 changes points of clause 3, Article 3; target Article 3 and clause 3 exist in `168`. | The complete set of amended provisions and their final validity. | `seed_evidence_located` |
+| `241/2026/NĐ-CP → 165/2024/NĐ-CP` | Source Article 1 changes Article 4; target Article 4 exists in `165`. | The complete set of amended provisions and their final validity. | `seed_evidence_located` |
+| `236/2026/NĐ-CP → 151/2024/NĐ-CP` | Source Article 1 changes clause 1, Article 9; target Article 9 and clause 1 exist in `151`. | The complete set of amended provisions and the role of `184/2025/NĐ-CP` in each target provision. | `seed_evidence_located` |
+| `218/2026/NĐ-CP → 158/2024/NĐ-CP` | Source Article 1 changes point a, clause 6, Article 4; the target article and clause exist in `158`. | The complete set of amended provisions and their final validity. | `seed_evidence_located` |
 | `108/2026/TT-BCA` and `12/2025/TT-BCA` | Both concern licensing tests, licence issuance, and international permits. | That either one replaces or amends the other. | `no_relation_claimed` |
 
 ## Known gaps and exclusions
@@ -113,15 +113,16 @@ This yields one foundation law, five distinct question families, and four explic
 | Check | Result | Boundary |
 |---|---|---|
 | Detail-source contract | 12/12 passed HTTP `200`, `success == true`, exact identifier, non-empty title, and non-empty HTML. | Re-run before each future snapshot; portal API is not a stable developer contract. |
+| Graph-ready portal metadata | Parsed artifact v2 has document type, effect status, organ, and signer on 12/12 documents; field on 11/12 and major on 8/12. | This supports only deterministic metadata nodes; it does not create legal-change relations. |
 | Public portal route | 12/12 public URLs are recorded and returned HTTP `200`. The route was read from the portal's own frontend code. | The page is client-rendered and the portal WAF blocks headless rendering, so API identity remains the automated evidence. |
-| Amendment evidence | One precise Article-1 provision mapping is reviewed for each of the four amendment chains. | This is sufficient for four seed temporal questions only; it is not a claim that every amendment provision has been mapped. |
+| Amendment evidence | A precise Article-1 source provision and target-unit presence are located for each of the four amendment chains. | These are candidate inputs, not approved relation records or temporal QA evidence. |
 | Scope and safety | `238/2026/NĐ-CP` is explicitly marked not effective until 2026-08-15. | No current-law answer may apply it before that date. |
 
-It is still only a pilot. The validated draft snapshot has 6,433 hierarchy units, but has no machine-readable approved relation artifact and no gold questions. Calling it the promoted corpus or a GraphRAG system now would be false.
+It is still only a pilot. The validated draft snapshot has 6,433 hierarchy units, but has no machine-readable approved relation artifact and no gold questions. Calling it a promoted corpus, measured GraphRAG system, or legal temporal-answer system now would be false.
 
 ## Remaining gates before promotion
 
-Before any graph, retrieval, or QA implementation, complete all of the following:
+Before importing legal-change edges, claiming retrieval quality, or serving QA, complete all of the following:
 
 1. Keep the recorded public URL and re-run the source contract immediately before each future snapshot; do not re-discover a record by title.
 2. For every temporal pilot question, promote its reviewed provision mapping into a relation-evidence record after parsing provides stable unit IDs; otherwise design the question to return a validity warning or abstain.

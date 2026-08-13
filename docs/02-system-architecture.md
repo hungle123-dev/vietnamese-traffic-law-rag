@@ -2,9 +2,17 @@
 
 ## Decision
 
-v1 is a **Python modular monolith**: one repository, one API process, one worker or CLI process, and Neo4j when retrieval begins. There is no microservice split, message broker, dedicated vector store, or agent runtime in Phase 1.
+v1 is a **Python modular monolith**: one repository, one API process, one offline CLI/worker process, and one Neo4j instance when the graph/retrieval phase begins. There is no microservice split, message broker, dedicated vector store, or agent runtime.
 
 The workload is offline batch ingestion, a small curated corpus, and a solo or small team. Clear module boundaries are enough to test and rebuild the system without creating distributed failure modes.
+
+## Five product layers
+
+1. **Ingestion:** offline fetch, raw preservation, normalization, parsing, validation, and graph projection.
+2. **Embeddings and indexes:** offline batch embedding plus Neo4j lexical/vector index build, pinned to one snapshot.
+3. **Retrieval and generation:** the short request path selects evidence, expands only bounded graph context, then verifies a cited answer.
+4. **Cache:** snapshot/configuration-scoped answer and retrieval caches control repeat-query latency and cost; Redis is not needed until measured scale requires it.
+5. **Monitoring and evaluation:** reports, traces, retrieval/citation metrics, and promotion gates expose drift instead of hiding it behind fluent output.
 
 ## Logical architecture
 
@@ -17,17 +25,22 @@ flowchart LR
     Raw[(Immutable raw responses)]
     Parsed[(Parsed hierarchy + manifest)]
     Graph[(Neo4j graph + lexical/vector indexes)]
+    Cache[(Snapshot-scoped cache)]
     API[FastAPI]
     Retrieve[Query pipeline]
     LLM[Optional LLM provider]
     UI[Web UI]
+    Observe[Monitoring + evaluation]
 
     Operator --> Catalog --> Ingest
     Portal --> Ingest
     Ingest --> Raw --> Parsed --> Graph
     UI --> API --> Retrieve
+    Retrieve --> Cache
     Retrieve --> Graph
     Retrieve --> LLM
+    Ingest --> Observe
+    API --> Observe
 ```
 
 ## Offline data flow
@@ -39,11 +52,12 @@ flowchart LR
     C --> D[Validate response schema]
     D --> E[Extract HTML and normalize text]
     E --> F[Parse legal hierarchy]
-    F --> G[Validate units and metadata]
+    F --> G[Validate units and graph-ready metadata]
     G --> H[Write draft snapshot manifest]
-    H --> I[Embed and build indexes]
-    I --> J[Smoke test]
-    J --> K[Promote active snapshot]
+    H --> I[Project explicit graph labels and approved AMENDS edges]
+    I --> J[Batch embed and build lexical/vector indexes]
+    J --> K[Smoke test and evaluate]
+    K --> L[Promote active snapshot]
 ```
 
 Raw response is stored before validation for audit. A failed response remains a quarantined diagnostic artifact; only validated parsed artifacts can enter a manifest or be promoted.
@@ -60,7 +74,9 @@ sequenceDiagram
 
     U->>A: POST /api/v1/qa
     A->>Q: validated request and active snapshot
-    Q->>G: exact lookup plus lexical and dense retrieval
+    Q->>Q: safe answer/retrieval cache lookup
+    Q->>G: metadata/status gate and exact lookup
+    Q->>G: lexical and dense retrieval in parallel
     G-->>Q: candidate evidence
     Q->>G: validity, hierarchy, and relation expansion
     Q->>L: selected evidence only
@@ -90,9 +106,10 @@ src/traffic_legal_qa/
     storage.py                      # raw, parsed, and manifest artifacts
     pipeline.py                     # fetch, validate, store, parse
   graph/
-    importer.py                     # parsed snapshot to Neo4j
+    importer.py                     # parsed snapshot to explicit Neo4j labels/edges
     validity.py                     # deterministic temporal logic
   retrieval/
+    cache.py                         # cache keys scoped to snapshot and config
     lexical.py                      # Neo4j full-text adapter
     dense.py                        # embedding and vector adapter
     fusion.py                       # RRF
@@ -122,7 +139,7 @@ There is deliberately no generic source interface, repository layer, factory, ev
 | `normalize.py` | deterministic HTML-to-text | source networking or graph write |
 | `parser.py` | stable IDs and parent links | LLM calls or validity claims |
 | `storage.py` | hashes and artifacts | policy decisions |
-| `graph/` | graph, index persistence, temporal query | HTTP request handling |
+| `graph/` | explicit graph projection, index persistence, temporal query | HTTP request handling |
 | `retrieval/` | candidate recall and ranking | answer prose |
 | `qa/` | grounded response and citation verification | arbitrary database queries |
 | `api/` | validation, auth/rate boundary, response shape | business logic |
@@ -134,6 +151,7 @@ There is deliberately no generic source interface, repository layer, factory, ev
 3. Every answer source resolves through `unit_id → document → raw artifact → public URL`.
 4. The LLM receives selected evidence, never database credentials or unrestricted tools.
 5. Portal schema validation happens before any response can enter a corpus manifest; an invalid response may remain only as a quarantined diagnostic artifact.
+6. A cache key includes snapshot and retrieval/prompt configuration; a cache hit never crosses a promoted-snapshot boundary.
 
 ## Upgrade triggers
 

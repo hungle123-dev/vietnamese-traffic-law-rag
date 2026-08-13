@@ -11,6 +11,21 @@
     "expireDate": "",
     "effectStatus": {
       "effectStatusName": "Còn hiệu lực"
-    }
+    },
+    "docType": {
+      "docTypeName": "Nghị định"
+    },
+    "fields": [
+      {"fieldName": "Đường bộ"}
+    ],
+    "majors": [
+      {"majorName": "Giao thông Vận tải"}
+    ],
+    "organs": [
+      {"organName": "Chính phủ"}
+    ],
+    "signers": [
+      {"signerName": "Trần Hồng Hà", "jobTitleName": "Phó Thủ tướng"}
+    ]
   }
 }

@@ -28,6 +28,7 @@ The product answers only when the selected evidence supports the claim. It retur
 3. **Structured:** a point belongs to a clause and an article; context expansion is bounded.
 4. **Auditable:** an answer can be traced to an index, parsed unit, raw portal response, and public URL.
 5. **Measurable:** retrieval and citation are evaluated separately from generation fluency.
+6. **System-oriented:** ingestion and indexing are offline; the request path is cache → retrieval → bounded graph context → cited generation.
 
 ## Domain boundary
 
@@ -54,7 +55,7 @@ A source without complete readable structured HTML is marked `blocked_no_structu
 
 ## v1 success definition
 
-v1 is complete only when a new operator can rebuild a reviewed snapshot, run search and QA, resolve every displayed citation, and reproduce an evaluation report. A chat screen that produces plausible text is not a success criterion.
+v1 is complete only when a new operator can rebuild a reviewed snapshot, build its graph/indexes, run search and QA, resolve every displayed citation, and reproduce an evaluation report. A chat screen that produces plausible text is not a success criterion.
 
 ## Key failure modes to demonstrate
 

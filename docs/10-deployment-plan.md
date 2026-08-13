@@ -34,7 +34,7 @@ Docker Compose is sufficient once API, graph, and UI exist. A cluster orchestrat
 ## Responsibilities
 
 - API: read-only QA/search path, health/readiness, input boundary, rate limits.
-- Worker or CLI: curated fetch, artifact storage, parse, validation, embedding, index build, evaluation, and promotion.
+- Worker or CLI: curated fetch, artifact storage, parse, graph projection, batch embedding, index build, evaluation, and promotion. None of these jobs run in a user request.
 - Neo4j: legal graph plus lexical and vector indexes.
 - Artifact storage: raw response, normalized text, parsed documents, manifests, reports, and evaluation outputs.
 - LLM provider: optional generation dependency behind a small provider adapter.

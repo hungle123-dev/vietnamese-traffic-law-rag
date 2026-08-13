@@ -9,6 +9,7 @@ from typing import Final
 from traffic_legal_qa.ingestion.models import CanonicalMetadata, LegalUnit, ParsedDocument, UnitType
 
 PARSER_VERSION: Final = "2"
+PARSED_ARTIFACT_VERSION: Final = "2"
 _RANK: Final = {"part": 0, "chapter": 1, "section": 2, "article": 3, "clause": 4, "point": 5}
 _STRUCTURAL_TYPES: Final = frozenset({"part", "chapter", "section"})
 _PART = re.compile(
@@ -161,6 +162,7 @@ class LegalHierarchyParser:
         units = tuple(builder.build() for builder in builders)
         self._validate(units, metadata.document_id)
         return ParsedDocument(
+            artifact_version=PARSED_ARTIFACT_VERSION,
             metadata=metadata,
             normalizer_version="1",
             parser_version=PARSER_VERSION,

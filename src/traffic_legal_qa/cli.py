@@ -64,6 +64,7 @@ def _validated_snapshot(
         "parsed_path",
         "normalizer_version",
         "parser_version",
+        "artifact_version",
     )
     validated: list[tuple[dict[str, str], ParsedDocument]] = []
     document_ids: set[str] = set()
@@ -104,6 +105,8 @@ def _validated_snapshot(
             raise ValueError(f"parsed normalizer version mismatch: {document_id}")
         if parsed.parser_version != entry["parser_version"]:
             raise ValueError(f"parsed parser version mismatch: {document_id}")
+        if parsed.artifact_version != entry["artifact_version"]:
+            raise ValueError(f"parsed artifact version mismatch: {document_id}")
         validated.append((entry, parsed))
     return validated
 
@@ -194,6 +197,74 @@ def fetch_catalog(
         raise typer.Exit(code=1)
 
 
+@app.command("rebuild-snapshot")
+def rebuild_snapshot(
+    snapshot_id: Annotated[str, typer.Option(help="Existing draft snapshot identifier.")],
+    catalog: Annotated[
+        Path,
+        typer.Option(
+            exists=True,
+            dir_okay=False,
+            readable=True,
+            help="Reviewed source catalog JSON matching the snapshot.",
+        ),
+    ],
+    data_root: Annotated[Path, typer.Option(help="Artifact root.")] = Path("data"),
+) -> None:
+    """Re-derive parsed artifacts from frozen raw bytes without network access."""
+
+    try:
+        sources = _load_sources(catalog)
+        if any(source.snapshot_id != snapshot_id for source in sources):
+            raise ValueError("catalog snapshot does not match requested snapshot")
+        manifest_path = data_root / "manifests" / f"{snapshot_id}.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        documents = manifest["documents"]
+        if manifest.get("snapshot_id") != snapshot_id or not isinstance(documents, list):
+            raise ValueError("invalid manifest envelope")
+        source_by_id = {source.expected_document_id: source for source in sources}
+        raw_by_id: dict[str, bytes] = {}
+        for document in documents:
+            if not isinstance(document, dict):
+                raise ValueError("invalid manifest document")
+            document_id = document.get("document_id")
+            document_guid = document.get("portal_document_guid")
+            content_sha256 = document.get("content_sha256")
+            if (
+                not isinstance(document_id, str)
+                or not isinstance(document_guid, str)
+                or not isinstance(content_sha256, str)
+            ):
+                raise ValueError("invalid manifest document")
+            source = source_by_id.get(document_id)
+            if source is None or document_guid != source.document_guid:
+                raise ValueError("catalog and manifest document identities differ")
+            raw_bytes = (data_root / "raw" / f"{content_sha256}.json").read_bytes()
+            if hashlib.sha256(raw_bytes).hexdigest() != content_sha256:
+                raise ValueError(f"raw hash mismatch: {document_id}")
+            raw_by_id[document_id] = raw_bytes
+        if source_by_id.keys() != raw_by_id.keys():
+            raise ValueError("catalog and manifest document IDs differ")
+    except (KeyError, TypeError, ValueError, OSError, json.JSONDecodeError) as exc:
+        raise typer.BadParameter(f"cannot rebuild snapshot: {snapshot_id}") from exc
+
+    pipeline = IngestionPipeline(
+        lambda source: raw_by_id[source.expected_document_id], ArtifactStore(data_root)
+    )
+    rebuilt: list[dict[str, str | int]] = []
+    for source in sources:
+        try:
+            result = pipeline.ingest(source)
+        except (OSError, PortalError, ValueError) as exc:
+            raise typer.BadParameter(
+                f"cannot rebuild {source.expected_document_id}: {exc}"
+            ) from exc
+        rebuilt.append(
+            {"document_id": source.expected_document_id, "unit_count": result.unit_count}
+        )
+    typer.echo(json.dumps({"snapshot_id": snapshot_id, "rebuilt": rebuilt}, ensure_ascii=False))
+
+
 @app.command("validate-snapshot")
 def validate_snapshot(
     snapshot_id: Annotated[str, typer.Option(help="Draft snapshot identifier.")],
@@ -237,6 +308,7 @@ def report_snapshot(
 
         report_documents: list[dict[str, object]] = []
         total_unit_counts: Counter[str] = Counter()
+        metadata_document_counts: Counter[str] = Counter()
         total_units = 0
         unknown_status_document_count = 0
         for document_id in sorted(documents_by_id):
@@ -245,6 +317,16 @@ def report_snapshot(
             total_unit_counts.update(unit_counts)
             total_units += len(parsed.units)
             unknown_status_document_count += parsed.metadata.status == "unknown"
+            metadata_document_counts.update(
+                {
+                    "portal_document_type": parsed.metadata.portal_document_type is not None,
+                    "source_effect_status": parsed.metadata.source_effect_status is not None,
+                    "fields": bool(parsed.metadata.fields),
+                    "majors": bool(parsed.metadata.majors),
+                    "issuing_organs": bool(parsed.metadata.issuing_organs),
+                    "signers": bool(parsed.metadata.signers),
+                }
+            )
             report_documents.append(
                 {
                     "document_id": document_id,
@@ -259,6 +341,7 @@ def report_snapshot(
                     "content_sha256": entry["content_sha256"],
                     "normalizer_version": entry["normalizer_version"],
                     "parser_version": entry["parser_version"],
+                    "artifact_version": entry["artifact_version"],
                     "reviewed_correction_count": len(
                         sources_by_id[document_id].reviewed_text_replacements
                     ),
@@ -279,6 +362,7 @@ def report_snapshot(
                 "unit_count": total_units,
                 "unit_counts": dict(sorted(total_unit_counts.items())),
                 "unknown_status_document_count": unknown_status_document_count,
+                "metadata_document_counts": dict(sorted(metadata_document_counts.items())),
             },
         }
         report_path = ArtifactStore(data_root).write_report(snapshot_id, report)

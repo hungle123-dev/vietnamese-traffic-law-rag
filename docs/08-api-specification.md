@@ -78,6 +78,8 @@ Rules:
 
 Sources are evidence used in the answer, not every retrieval candidate.
 
+`metadata` additionally records `cache_status: hit|miss|bypass` once caching is implemented. A cache hit still returns the current snapshot, index, and prompt versions so clients never mistake a prior snapshot answer for a fresh one.
+
 ## Search request
 
     POST /api/v1/search
@@ -91,7 +93,7 @@ Sources are evidence used in the answer, not every retrieval candidate.
       "top_k": 10
     }
 
-The response includes candidate unit ID, document ID, ranks and scores by retriever, fused/rerank score when available, validity, and source locator. It never calls generation.
+The response includes candidate unit ID, document ID, ranks and scores by retriever, fused/rerank score when available, bounded graph-context IDs, validity, and source locator. It never calls generation.
 
 ## Document and unit endpoints
 

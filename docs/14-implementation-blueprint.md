@@ -4,7 +4,7 @@
 
 This is the file-by-file plan for the first coding phase. It prevents premature scaffolding and keeps the implementation aligned with the architecture.
 
-Phase 1 began with one verified technical smoke seed and now has an approved 12-record draft catalog. Phase 0 remains open: pilot-citation and reviewed-relation gates still prohibit later phases.
+Phase 1 began with one verified technical smoke seed and now has an approved 12-record draft catalog. The next code phase is deterministic graph projection. Pilot citations and approved relation records are still required before retrieval quality claims or temporal QA claims, not before importing hierarchy/portal metadata.
 
 ## Phase 1 implementation order
 
@@ -74,6 +74,7 @@ Commands are deliberately small:
 
     fetch-portal
     fetch-catalog
+    rebuild-snapshot
     validate-snapshot
     report-snapshot
 
@@ -85,7 +86,7 @@ Fetch accepts only a document ID already present in the approved catalog. It nev
 
 ## Phase 2 implementation order
 
-Only after Phase 1 gate passes, add:
+After the current artifact rebuild and manifest validation, add:
 
     graph/importer.py
     graph/validity.py
@@ -99,13 +100,14 @@ Only after Phase 1 gate passes, add:
 
 Add the Neo4j driver and embedding dependencies only at this phase. Build lexical and dense baselines separately before fusion. Do not add reranking before R0–R2 results exist.
 
-Import deterministic hierarchy first, then import only approved records from `relations/{snapshot_id}.json`. A relation candidate, portal hint, or unresolved source/target must fail the draft snapshot gate rather than create a public graph edge.
+Import deterministic hierarchy as explicit `Part`, `Chapter`, `Section`, `Article`, `Clause`, and `Point` labels first; then attach actual portal metadata (`DocumentType`, `EffectStatus`, `Field`, `Organization`, `Signer`). Import only approved `AMENDS` records from `relations/{snapshot_id}.json`; their `amendment_type`, evidence unit, raw hash, and review properties are mandatory. A relation candidate, portal hint, or unresolved source/target must fail the relation import rather than create a public legal edge.
 
 ## Phase 3 implementation order
 
-Only after a retrieval configuration is selected, add:
+Only after R0–R2 establish a retrieval configuration, add:
 
     retrieval/rerank.py
+    retrieval/cache.py
     qa/citations.py
     qa/prompts.py
     qa/service.py

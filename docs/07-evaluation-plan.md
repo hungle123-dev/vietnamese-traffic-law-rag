@@ -6,7 +6,7 @@ Evaluation isolates failure by layer: source contract, parser, retrieval, graph,
 
 ## Gold question set
 
-The v1 target is 300–500 reviewed Vietnamese questions. Start with 30 pilot questions before building retrieval.
+The v1 target is 300–500 reviewed Vietnamese questions. Create 30 pilot questions before measuring or selecting a retrieval configuration. The deterministic structural graph may be imported before the pilot set exists; the pilot set prevents unmeasured claims about retrieval, rerank, or GraphRAG quality.
 
 Each question stores:
 

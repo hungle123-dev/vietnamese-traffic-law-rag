@@ -23,6 +23,20 @@ A candidate without unit ID and snapshot is invalid for QA.
 
 Before any search, retrieval restricts candidates to the active snapshot and explicit user filters. When `effective_at` is available and validity can be determined from indexed metadata, a false candidate is excluded before ranking. `unknown` is retained only with its warning so the system can clarify or abstain rather than silently treating it as current.
 
+Metadata is a **gate**, not a claim that vector search is unnecessary: a natural-language traffic question normally uses lexical and dense recall after the gate narrows the correct snapshot, status, date, and explicit filter scope.
+
+## Request path and cache
+
+```text
+normalize query → exact-safe cache → snapshot/status/filter gate → exact locator
+→ lexical + dense in parallel → RRF → rerank small pool → graph expansion
+→ select 5–10 evidence units → cited generation → verify → cache safe result
+```
+
+- The answer cache is used only for a canonical, context-free request whose snapshot, effective date, retrieval configuration, prompt version, and safety policy match exactly.
+- The retrieval cache stores candidate IDs for the same scoped key. It never stores a result across snapshots.
+- Cache miss is normal; cache is a latency/cost optimization, never an authority or a replacement for citation verification.
+
 ## Query handling
 
 ### Validation
@@ -67,7 +81,7 @@ A cross-encoder reranks only a bounded candidate pool, maximum 50 in v1. It has 
 
 ### Graph expansion
 
-After ranking, retrieve only needed parent, child, sibling, and reviewed relation units. Expansion has fixed depth and count limits. Never insert an expanded unit into a claim unless it is included in the selected evidence set.
+After reranking (or RRF when reranking is unavailable), retrieve only needed parent, child, sibling, and approved `AMENDS` units. Expansion has fixed depth and count limits. Never insert an expanded unit into a claim unless it is included in the selected evidence set.
 
 Validity is resolved before final context selection, so a structurally nearby but inapplicable provision cannot become evidence merely through graph expansion.
 
@@ -78,7 +92,7 @@ The final context:
 - prioritizes direct evidence;
 - groups units by document and hierarchy;
 - keeps server-generated citation markers immutable;
-- includes no more than ten evidence units by default;
+- includes five to ten evidence units by default;
 - avoids mixing current and repealed material unless the question is explicitly temporal;
 - carries validity warnings into generation.
 

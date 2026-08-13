@@ -21,8 +21,8 @@ This checklist distinguishes a documentation-ready blueprint from a released pro
 - [x] Twelve source GUIDs have manual portal verification.
 - [x] Every selected record has expected document ID, title, public page URL, and curator status.
 - [x] Every selected response contains complete readable structured HTML.
-- [ ] Thirty pilot questions have reviewed gold citation IDs.
-- [ ] Every pilot temporal or amendment question has an approved relation-evidence record.
+- [ ] Thirty pilot questions have reviewed gold citation IDs (required before retrieval configuration is selected, not before structural graph import).
+- [ ] Every pilot temporal or amendment question has an approved relation-evidence record (required before that relation affects validity or a QA answer).
 - [x] Sanitized portal JSON and HTML fixtures exist.
 - [x] Curator checklist documents status and relation limitations.
 
@@ -35,11 +35,13 @@ This checklist distinguishes a documentation-ready blueprint from a released pro
 - [x] Duplicate, empty, and orphan units are rejected.
 - [x] A manifest includes only validated parsed artifacts.
 - [x] A quality report records source, parser, and catalog versions.
+- [x] Rebuilt parsed artifacts record portal graph metadata and `artifact_version: 2` for all 12 documents.
 - [ ] Failure retains raw artifact when available and blocks promotion.
 
 ## D. Retrieval and graph gate
 
 - [ ] Neo4j constraints protect document, unit, and snapshot identity.
+- [ ] Projection creates explicit `Part` through `Point` labels and deterministic `HAS_*` edges that reconcile with the parsed manifest.
 - [ ] Exact lookup, lexical, and dense retrieval run independently.
 - [ ] Hybrid fusion is versioned and evaluated.
 - [ ] Reranking is bounded and has fallback.

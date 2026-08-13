@@ -15,6 +15,7 @@
 | All unit tests | `uv run pytest tests/unit` |
 | Snapshot | `uv run traffic-legal-qa validate-snapshot --snapshot-id <id>` |
 | Snapshot report | `uv run traffic-legal-qa report-snapshot --snapshot-id <id> --catalog <catalog>` |
+| Rebuild parsed snapshot | `uv run traffic-legal-qa rebuild-snapshot --snapshot-id <id> --catalog <catalog>` |
 
 ## Ingestion Contract
 
@@ -26,8 +27,8 @@
 
 ## Scope
 
-- Phase 1 only: portal ingestion, artifacts, hierarchy parsing, catalog curation, and reports.
-- Do not add graph, embeddings, retrieval, LLMs, UI, generic source providers, or bulk crawlers before their documented gates pass.
+- The implemented foundation is portal ingestion, artifacts, hierarchy parsing, catalog curation, and reports; graph, retrieval, QA, cache, and UI remain target phases.
+- Do not scaffold a future service. Add a graph, retrieval, QA, cache, or UI module only in its documented phase with its contract and focused check.
 - Update `docs/03-data-and-ingestion.md` and `docs/14-implementation-blueprint.md` when an artifact or pipeline contract changes.
 
 ## Commits

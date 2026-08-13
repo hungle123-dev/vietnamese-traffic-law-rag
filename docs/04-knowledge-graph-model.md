@@ -2,7 +2,7 @@
 
 ## Decision
 
-The graph is a deterministic legal graph. It represents source hierarchy, reviewed temporal relations, and snapshot lineage. It is not an open-ended entity graph inferred by an LLM.
+The graph is a deterministic legal graph. It represents source hierarchy, portal metadata, reviewed legal-change relations, and snapshot lineage. It is not an open-ended entity graph inferred by an LLM.
 
 Every node and relationship must trace to a reviewed parsed artifact and source provenance.
 
@@ -10,21 +10,28 @@ Every node and relationship must trace to a reviewed parsed artifact and source 
 
 | Label | Purpose | Required |
 |---|---|---:|
-| LegalDocument | One canonical source document inside one snapshot | Yes |
-| LegalUnit | One Part, Chapter, Section, Article, Clause, or Point | Yes |
+| Document | One canonical source document inside one snapshot | Yes |
 | Snapshot | Reviewed data snapshot | Yes |
-| RelationEvidence | Provenance for reviewed cross-document relation | When relation exists |
+| DocumentType, EffectStatus | Portal-published classification/status | Yes when source provides it |
+| Field | Portal `fields` or `majors` topic | Yes when source provides it |
+| Organization, Signer | Issuer and signer metadata from portal | Yes when source provides it |
+| Part, Chapter, Section, Article, Clause, Point | Explicit legal hierarchy labels | Yes when parser creates them |
 
-Using one LegalUnit label with a unit_type property keeps the v1 import simpler. Citation IDs never use Neo4j internal IDs or vector IDs.
+`LegalUnit` is deliberately the generic, durable **parsed-artifact** model. It is not the Neo4j schema. The importer projects its `unit_type` to explicit labels and `HAS_*` edges, matching the legal hierarchy that users see and the topology used in the NLP-LegalQA reference. Citation IDs never use Neo4j internal IDs or vector IDs.
 
-### LegalDocument properties
+### Document properties
 
     document_key
     document_id
     portal_document_guid
     title
     document_type
+    portal_document_type
     issuer
+    fields
+    majors
+    issuing_organs
+    signers
     issued_date
     effective_from
     effective_to
@@ -35,7 +42,7 @@ Using one LegalUnit label with a unit_type property keeps the v1 import simpler.
 
 `document_key` is `${snapshot_id}::${document_id}`. It is the graph identity; `document_id` remains the stable public legal identifier.
 
-### LegalUnit properties
+### Legal hierarchy properties
 
     unit_key
     unit_id
@@ -49,39 +56,41 @@ Using one LegalUnit label with a unit_type property keeps the v1 import simpler.
     parser_version
     snapshot_id
 
-`unit_key` is `${snapshot_id}::${unit_id}`. It is the graph identity; `unit_id` remains the stable public provision identifier.
+Each explicit label (`Part` through `Point`) has these common properties. `unit_key` is `${snapshot_id}::${unit_id}`; `unit_id` remains the stable public provision identifier.
 
 ## Relationship model
 
 | Type | Direction | Meaning |
 |---|---|---|
-| CONTAINS | document/unit → unit | Deterministic hierarchy |
-| BELONGS_TO | document/unit → snapshot | Data lineage |
-| AMENDS | newer document/unit → older document/unit | Reviewed amendment |
-| REPEALS | newer document/unit → older document/unit | Reviewed repeal |
-| REPLACES | newer document/unit → older document/unit | Reviewed replacement |
-| REFERENCES | unit → document/unit | Reviewed legal reference |
-| EVIDENCED_BY | RelationEvidence → unit | Source provision that proves a relation |
+| HAS_TYPE | Document → DocumentType | Portal document type |
+| HAS_STATUS | Document → EffectStatus | Portal source-status signal |
+| IN_FIELD | Document → Field | Portal field or major, with `sources` set property |
+| ISSUED_BY | Document → Organization | Portal issuing organ |
+| SIGNED_BY | Document → Signer | Portal signer; edge carries job title |
+| HAS_PART / HAS_CHAPTER / HAS_SECTION / HAS_ARTICLE / HAS_CLAUSE / HAS_POINT | Document or parent unit → child unit | Deterministic legal hierarchy |
+| IN_SNAPSHOT | Document/unit → Snapshot | Data lineage |
+| AMENDS | newer provision/document → older provision/document | Approved legal change |
+| RELATED_TO | Document → Document | Optional portal relation only; never a legal inference |
 
-Cross-document edges connect records in the same snapshot and have `relation_id`, `snapshot_id`, review status, and effective dates. The matching `RelationEvidence` node has `relation_id`, relation type, `evidence_unit_id`, source URL, raw hash, reviewer date, and note; it is linked to the source provision with `EVIDENCED_BY`. A candidate relation is stored outside the active graph or marked unreviewed; it cannot affect public validity answers.
+`IN_FIELD.sources` is the set of portal categories (`fields`, `majors`) that yielded the edge, so one document/topic pair is not duplicated. `AMENDS` carries `relation_id`, `amendment_type`, `evidence_unit_id`, `source_url`, `raw_sha256`, `snapshot_id`, `review_status`, `reviewed_at`, and `note`. A candidate relation remains outside the active graph; it cannot affect public validity answers. `RELATED_TO` is imported only when the portal actually provides it and carries `provenance: portal`; it is excluded from temporal and legal reasoning.
 
 ## Hierarchy and citation
 
 ```mermaid
 graph TD
-    D[LegalDocument]
+    D[Document]
     C[Chapter]
     A[Article]
     K[Clause]
     P[Point]
     S[Snapshot]
 
-    D -->|CONTAINS| C
-    C -->|CONTAINS| A
-    A -->|CONTAINS| K
-    K -->|CONTAINS| P
-    D -->|BELONGS_TO| S
-    P -->|BELONGS_TO| S
+    D -->|HAS_CHAPTER| C
+    C -->|HAS_ARTICLE| A
+    A -->|HAS_CLAUSE| K
+    K -->|HAS_POINT| P
+    D -->|IN_SNAPSHOT| S
+    P -->|IN_SNAPSHOT| S
 ```
 
 Display citation is generated server-side:
@@ -104,20 +113,20 @@ The system never uses “newer document wins” as a validity rule. If only docu
 
 1. Resolve an exact unit and parent chain.
 2. Expand a bounded number of children or siblings around selected evidence.
-3. Read reviewed amendment, repeal, replacement, and reference neighbors.
+3. Read approved `AMENDS` neighbors and their evidence locator.
 4. Evaluate validity at a date.
 
 The public API never accepts arbitrary Cypher or LLM-generated graph queries.
 
 ## Integrity checks
 
-- Unique constraints on `(snapshot_id, document_id)`, `(snapshot_id, unit_id)`, and `snapshot_id`.
-- CONTAINS is acyclic and has one deterministic parent.
+- Unique constraints on `(snapshot_id, document_id)`, each hierarchy label's `(snapshot_id, unit_id)`, and `snapshot_id`.
+- Every `HAS_*` hierarchy path is acyclic and each unit has one deterministic parent.
 - A unit belongs to exactly one document and one imported snapshot artifact.
 - Every public cross-document relation has provenance and review status.
-- Every `AMENDS`, `REPEALS`, `REPLACES`, or `REFERENCES` edge has a matching approved `RelationEvidence` record.
+- Every `AMENDS` edge has the approved relation artifact's evidence and review properties.
 - Every citation resolves as `(active_snapshot_id, unit_id)`.
 
 ## Deferred complexity
 
-No automatic legal relation extraction is required for v1. Start with manually reviewed document-level relations for the pilot corpus; add unit-level mappings only when a gold case requires them.
+No automatic legal relation extraction is required for v1. Start with reviewed provision-level mappings for the four seed amendment chains; add more only when an evaluation case exposes a coverage gap. `DocumentGroup` and related-document stubs are not created until the current portal source actually provides the needed metadata.

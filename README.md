@@ -4,7 +4,7 @@ Blueprint cho một sản phẩm tra cứu và hỏi đáp pháp luật giao th�
 
 ## Trạng thái
 
-Phase 1 đã tạo và kiểm tra một **draft snapshot 12 văn bản**: raw immutable, normalized text, parsed hierarchy, manifest và quality report. Blueprint vẫn là nguồn quyết định; source chưa có graph, retrieval, LLM hay UI. Snapshot chưa được "promote" vì 30 gold questions và relation-evidence vẫn chưa tồn tại.
+Code hiện có là nền ingestion cho **draft snapshot 12 văn bản**: raw immutable, normalized text, parsed hierarchy, manifest, quality report và metadata graph-ready từ portal. Blueprint là target đầy đủ gồm graph, hybrid retrieval, rerank, generation có citation, cache và monitoring; các lớp đó chưa được scaffold giả tạo trước phase của chúng. Snapshot chỉ được promote sau khi graph/index và evaluation gate có bằng chứng; gold questions đo retrieval, không chặn import cấu trúc graph.
 
 ## Product đã chốt
 
@@ -30,6 +30,9 @@ uv run traffic-legal-qa fetch-portal `
   --catalog data/catalog/smoke-168-2024-nd-cp.json `
   --document-id "168/2024/NĐ-CP"
 uv run traffic-legal-qa fetch-catalog `
+  --catalog data/catalog/pilot-traffic-2026-08-13-v1.json
+uv run traffic-legal-qa rebuild-snapshot `
+  --snapshot-id traffic-2026-08-13-v1 `
   --catalog data/catalog/pilot-traffic-2026-08-13-v1.json
 uv run traffic-legal-qa validate-snapshot --snapshot-id traffic-2026-08-13-v1
 uv run traffic-legal-qa report-snapshot `

@@ -9,8 +9,7 @@ The roadmap is gate-based. A phase does not advance because a feature looks inte
 - This documentation set approved as the implementation blueprint.
 - Seed catalog of about 12 reviewed portal GUIDs.
 - For each seed: manually verify identifier, title, readable HTML, public URL, and expected source metadata.
-- Thirty pilot Vietnamese questions with gold document/unit citations.
-- A reviewed relation artifact covering every pilot question that depends on amendment, repeal, replacement, or temporal validity.
+- A question taxonomy and relation-review template; the 30-question pilot is prepared before retrieval evaluation, not before structural graph import.
 - Sanitized portal response fixtures and a curator review checklist.
 
 ### Exit gate
@@ -37,16 +36,19 @@ The roadmap is gate-based. A phase does not advance because a feature looks inte
 - Schema, parse, and validation failure preserve raw artifact but block promotion.
 - No query, graph, or LLM feature exists yet.
 
-## Phase 2: Graph and retrieval baseline
+## Phase 2: Graph foundation and measured retrieval baseline
 
 ### Deliverables
 
-- Neo4j import with constraints and snapshot tagging.
+- Neo4j import with explicit legal labels, `HAS_*` hierarchy edges, portal metadata nodes, constraints, and snapshot tagging.
+- Import only approved `AMENDS` records with `amendment_type` and evidence properties.
+- Write 30 pilot questions with gold document/unit citations before selecting retrieval configuration.
 - Exact lookup, lexical retrieval, dense retrieval, and retrieval-only API.
 - Evaluation runner for R0, R1, and R2.
 
 ### Exit gate
 
+- Structural graph counts reconcile exactly with the parsed manifest; a source unit has one parent and every metadata edge comes from portal metadata.
 - Search returns candidate IDs, snapshot, scores, and source locator.
 - Gold pilot results identify whether failures are data, parser, lexical, or dense.
 - A snapshot/index mismatch is detected by readiness checks.
@@ -55,7 +57,7 @@ The roadmap is gate-based. A phase does not advance because a feature looks inte
 
 ### Deliverables
 
-- RRF, optional reranker, bounded graph expansion, deterministic validity service.
+- RRF, optional reranker, bounded graph expansion, deterministic validity service, and snapshot-scoped answer/retrieval caches.
 - QA service with structured generation, citation verifier, clarification, abstention, and provider fallback.
 - R3 through R5 ablations.
 
@@ -100,12 +102,12 @@ The experiment has a small planner with only exact lookup, hybrid search, graph 
 
 ## Suggested sequence
 
-    Week 1: Phase 0 catalog, fixtures, pilot questions
+    Week 1: Phase 0 catalog, fixtures, graph projection contract
     Week 2: Phase 1 portal client, artifacts, parser
-    Week 3: Phase 1 validation and seed snapshot
-    Week 4: Phase 2 lexical and dense baseline
-    Week 5: Phase 2 evaluation and error analysis
-    Week 6: Phase 3 fusion, graph context, validity
+    Week 3: Phase 1 validation, artifact rebuild, seed snapshot
+    Week 4: Phase 2 Neo4j structural graph and relation-review artifact
+    Week 5: Phase 2 pilot gold set, lexical/dense baseline, evaluation
+    Week 6: Phase 3 fusion, rerank, graph context, validity, cache
     Week 7: Phase 3 grounded QA and citation verifier
     Week 8: Phase 4 API, UI, and observability
     Week 9: Phase 5 evaluation, demo, and release materials
