@@ -14,7 +14,7 @@ This checklist distinguishes a documentation-ready blueprint from a released pro
 - [x] Architecture is a modular monolith with explicit upgrade triggers.
 - [x] Default agentic retrieval is excluded from v1.
 - [x] Planned source layout and implementation order exist.
-- [x] No runtime source code or data artifact remains in this repository.
+- [x] No unpromoted raw response, parsed legal corpus, or generated index is tracked in Git.
 
 ## B. Phase 0 data-readiness gate
 

@@ -4,7 +4,7 @@
 
 This is the file-by-file plan for the first coding phase. It prevents premature scaffolding and keeps the implementation aligned with the architecture.
 
-The repository is intentionally documentation-only now. Do not create these files until the Phase 0 data-readiness gate passes.
+Phase 1 code begins with one verified technical smoke seed. This does not approve Phase 0: the 12-record catalog and pilot-citation gates remain open, and later phases remain prohibited until their gates pass.
 
 ## Phase 1 implementation order
 
@@ -54,6 +54,7 @@ Order inside pipeline:
     → store raw JSON in quarantine
     → validate schema
     → normalize HTML
+    → apply reviewed exact-count corrections
     → parse hierarchy
     → validate units
     → write parsed document
@@ -70,11 +71,10 @@ Implement only after the pipeline passes fixtures:
 
 Commands are deliberately small:
 
-    search-portal
     fetch-portal
     validate-snapshot
 
-Search prints candidates for human review. Fetch accepts a GUID already present in the catalog. It never accepts an arbitrary URL or bulk search phrase as an ingest target.
+Fetch accepts only a document ID already present in the approved catalog. It never accepts an arbitrary URL or bulk search phrase as an ingest target. Add `search-portal` only when the expansion phase needs portal discovery again; it is not needed for the frozen seed catalog.
 
 ## Phase 2 implementation order
 

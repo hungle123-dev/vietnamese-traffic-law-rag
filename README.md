@@ -4,7 +4,7 @@ Blueprint cho một sản phẩm tra cứu và hỏi đáp pháp luật giao th�
 
 ## Trạng thái
 
-Repository hiện là **documentation-only**. Không có source code, test, dependency lockfile, data corpus hay cấu hình runtime. Mọi quyết định cần thiết trước giai đoạn code được đóng băng trong [`docs/`](docs/README.md).
+Phase 1 đang triển khai ingestion foundation cho một seed đã duyệt. Blueprint vẫn là nguồn quyết định; source hiện chỉ có portal contract, deterministic normalization/parser, artifact storage và curator CLI. Chưa có graph, retrieval, LLM hay UI.
 
 ## Product đã chốt
 
@@ -21,4 +21,15 @@ Repository hiện là **documentation-only**. Không có source code, test, depe
 4. [Data and ingestion contract](docs/03-data-and-ingestion.md)
 5. [Implementation blueprint](docs/14-implementation-blueprint.md)
 
-Chỉ bắt đầu Phase 1 khi các điều kiện trong [acceptance criteria](docs/13-acceptance-criteria.md) và Phase 0 của [roadmap](docs/12-roadmap.md) được đáp ứng.
+## Chạy Phase 1
+
+```powershell
+uv sync --all-groups
+uv run pytest tests/unit
+uv run traffic-legal-qa fetch-portal `
+  --catalog data/catalog/smoke-168-2024-nd-cp.json `
+  --document-id "168/2024/NĐ-CP"
+uv run traffic-legal-qa validate-snapshot --snapshot-id traffic-2026-08-13-v1
+```
+
+Raw response và parsed artifacts sinh ra trong `data/` được `.gitignore`; catalog seed được version-control.

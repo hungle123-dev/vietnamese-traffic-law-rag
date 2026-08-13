@@ -1,0 +1,14 @@
+.venv/
+.serena/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+data/raw/
+data/normalized/
+data/parsed/
+data/relations/
+data/manifests/
+data/reports/

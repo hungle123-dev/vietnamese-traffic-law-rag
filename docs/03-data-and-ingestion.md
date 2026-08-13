@@ -78,7 +78,8 @@ For each approved catalog entry, the pipeline:
 3. validates `success == true` and non-empty `data.docIdentity`, `data.docName`, and `data.docContent`, then requires `data.docIdentity` to equal the catalog's `expected_document_id`;
 4. maps portal fields to canonical metadata;
 5. converts `docContent` HTML to normalized text;
-6. parses and validates legal hierarchy.
+6. applies only catalogued, curator-approved literal corrections whose exact expected match count succeeds; and
+7. parses and validates legal hierarchy.
 
 Canonical metadata:
 
@@ -117,7 +118,7 @@ reports/{run_id}.json
 ```
 
 - Raw bytes are immutable and deduplicated by SHA-256.
-- Normalized text is reproducible from raw JSON and a normalizer version.
+- Normalized text is reproducible from raw JSON, a normalizer version, and the versioned catalogued corrections. A correction preserves the raw bytes, states an HTTPS evidence URL and reason, and blocks ingestion if its literal match count changes.
 - Parsed documents store parser version and stable unit IDs.
 - A manifest contains only validated parsed artifacts; a raw fetch alone is not corpus membership.
 - Schema-invalid raw responses remain quarantined for drift diagnosis and are never exposed as search or QA evidence.

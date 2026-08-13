@@ -79,4 +79,4 @@ timestamp
 
 ## Ready-for-code gate
 
-Phase 1 opens only after all of the following exist: a seed catalog of about 12 verified portal GUIDs; 30 pilot questions with gold citations; sanitized HTML fixtures; and signed-off Phase 0 criteria. See [12-roadmap.md](12-roadmap.md).
+The full Phase 1 data foundation opens only after all of the following exist: a seed catalog of about 12 verified portal GUIDs; 30 pilot questions with gold citations; sanitized HTML fixtures; and signed-off Phase 0 criteria. A single non-promoted technical smoke seed may validate the portal and parser contracts, but it does not satisfy this gate. See [12-roadmap.md](12-roadmap.md).

@@ -128,4 +128,4 @@ To convert this proposal into an approved seed catalog, complete all of the foll
 3. For every temporal pilot question, promote its reviewed provision mapping into a relation-evidence record after parsing provides stable unit IDs; otherwise design the question to return a validity warning or abstain.
 4. Write 30 pilot questions with gold citations only after the selected documents have stable parsed unit IDs.
 
-**Decision requested:** approve or revise this 12-document composition and its stated gaps. Until that decision, Phase 0 remains open and no implementation or data ingestion should start.
+**Decision requested:** approve or revise this 12-document composition and its stated gaps. Until that decision, Phase 0 remains open; only a single non-promoted technical smoke may validate the source contract, and no corpus-scale ingestion should start.

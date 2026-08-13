@@ -1,0 +1,35 @@
+{
+  "snapshot_id": "traffic-2026-08-13-v1",
+  "sources": [
+    {
+      "document_guid": "173920",
+      "expected_document_id": "168/2024/NĐ-CP",
+      "expected_title": "Nghị định số 168/2024/NĐ-CP Quy định xử phạt vi phạm hành chính về trật tự, an toàn giao thông trong lĩnh vực giao thông đường bộ; trừ điểm, phục hồi điểm giấy phép lái xe",
+      "expected_public_url": "https://phapluat.gov.vn/legal-documents/173920?tabName=noidung",
+      "review_status": "approved",
+      "reviewed_text_replacements": [
+        {
+          "find": "đ) Điều khiển xe gắn biển số không đúng với chứng nhận đăng ký xe hoặc gắn biển số không do cơ quan có thẩm quyền cấp (kể cả rơ moóc);",
+          "replace": "d) Điều khiển xe gắn biển số không đúng với chứng nhận đăng ký xe hoặc gắn biển số không do cơ quan có thẩm quyền cấp (kể cả rơ moóc);",
+          "expected_count": 1,
+          "evidence_url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/01/168-nd-cp.signed.pdf",
+          "reason": "Bản nội dung API ghi nhãn điểm là đ), trong khi bản ký số do Chính phủ công bố ghi d) trước điểm đ) của khoản 2 Điều 16."
+        },
+        {
+          "find": "đ) Sử dụng thiết bị, dụng cụ không đảm bảo theo quy định của pháp luật về đo lường để kiểm tra, thử nghiệm;",
+          "replace": "d) Sử dụng thiết bị, dụng cụ không đảm bảo theo quy định của pháp luật về đo lường để kiểm tra, thử nghiệm;",
+          "expected_count": 1,
+          "evidence_url": "https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2024/12/43733/54013-1-202577-78168-2024-nd-cp.pdf",
+          "reason": "Bản nội dung API ghi nhãn điểm là đ), trong khi Công báo Chính phủ ghi d) của khoản 3 Điều 40."
+        },
+        {
+          "find": "c) Lưu trữ hồ sơ, tài liệu, dữ liệu chứng nhận không đúng quy định.",
+          "replace": "e) Lưu trữ hồ sơ, tài liệu, dữ liệu chứng nhận không đúng quy định.",
+          "expected_count": 1,
+          "evidence_url": "https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2024/12/43733/54013-1-202577-78168-2024-nd-cp.pdf",
+          "reason": "Bản nội dung API ghi nhãn điểm là c), trong khi Công báo Chính phủ ghi e) của khoản 3 Điều 40."
+        }
+      ]
+    }
+  ]
+}
