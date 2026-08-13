@@ -1,160 +1,147 @@
 # 02. System Architecture
 
-## Mục tiêu
+## Decision
 
-Mô tả kiến trúc logic và deployment tối thiểu cho một hệ thống traffic Legal QA có thể tái lập, đánh giá và nâng cấp.
+v1 is a **Python modular monolith**: one repository, one API process, one worker or CLI process, and Neo4j when retrieval begins. There is no microservice split, message broker, dedicated vector store, or agent runtime in Phase 1.
 
-## 1. Architecture principles
+The workload is offline batch ingestion, a small curated corpus, and a solo or small team. Clear module boundaries are enough to test and rebuild the system without creating distributed failure modes.
 
-1. **Retrieval trước generation:** LLM không thay thế search.
-2. **Structured legal units:** article/clause/point là evidence unit, không chunk mù theo token.
-3. **Validity is data:** hiệu lực được tính từ metadata/relations đã xác minh.
-4. **Offline heavy work:** crawl, parse, embed và index không nằm trong request path.
-5. **Small request path:** filter → retrieve → rerank → select → generate.
-6. **Graceful degradation:** thiếu LLM vẫn có thể trả search results; thiếu evidence thì abstain.
-7. **Simple first:** v1 dùng Neo4j cho graph và index; chỉ tách Qdrant/OpenSearch khi benchmark cần.
-
-## 2. Logical architecture
-
-```mermaid
-flowchart TB
-    U[User / Operator / Researcher]
-    UI[Web UI]
-    API[FastAPI API]
-    ORCH[Query Orchestrator]
-    CACHE[(Redis or local cache)]
-    META[(Neo4j legal graph\nmetadata + hierarchy)]
-    RAW[(Raw document storage)]
-    LEX[Full-text / BM25 index]
-    VEC[Vector index]
-    RERANK[Cross-encoder reranker]
-    VALID[Validity + citation validator]
-    LLM[LLM generation]
-    WORKER[Ingestion / evaluation worker]
-    SOURCES[Official legal portals]
-    EVAL[Evaluation store / reports]
-
-    U --> UI --> API --> ORCH
-    ORCH --> CACHE
-    ORCH --> LEX
-    ORCH --> VEC
-    ORCH --> META
-    LEX --> ORCH
-    VEC --> ORCH
-    META --> ORCH
-    ORCH --> RERANK --> VALID --> LLM --> API
-    VALID --> API
-    SOURCES --> WORKER --> RAW
-    RAW --> WORKER --> META
-    WORKER --> LEX
-    WORKER --> VEC
-    WORKER --> EVAL
-```
-
-## 3. Offline ingestion flow
+## Logical architecture
 
 ```mermaid
 flowchart LR
-    D[Discover source] --> F[Fetch raw content]
-    F --> H[Hash + immutable store]
-    H --> M[Extract metadata]
-    M --> P[Parse hierarchy]
-    P --> R[Resolve amendments/version]
-    R --> V[Validate + quality report]
-    V --> E[Batch embeddings]
-    E --> I[Build versioned indexes]
-    I --> T[Smoke tests]
-    T --> PR[Promote index]
+    Operator[Curator / Operator]
+    Portal[Cổng Pháp luật quốc gia\nAPI + HTML]
+    Catalog[Reviewed source catalog]
+    Ingest[Ingestion CLI / worker]
+    Raw[(Immutable raw responses)]
+    Parsed[(Parsed hierarchy + manifest)]
+    Graph[(Neo4j graph + lexical/vector indexes)]
+    API[FastAPI]
+    Retrieve[Query pipeline]
+    LLM[Optional LLM provider]
+    UI[Web UI]
+
+    Operator --> Catalog --> Ingest
+    Portal --> Ingest
+    Ingest --> Raw --> Parsed --> Graph
+    UI --> API --> Retrieve
+    Retrieve --> Graph
+    Retrieve --> LLM
 ```
 
-## 4. Online request flow
+## Offline data flow
+
+```mermaid
+flowchart LR
+    A[Reviewed catalog entry] --> B[Fetch portal detail JSON]
+    B --> C[Store immutable raw JSON in quarantine]
+    C --> D[Validate response schema]
+    D --> E[Extract HTML and normalize text]
+    E --> F[Parse legal hierarchy]
+    F --> G[Validate units and metadata]
+    G --> H[Write draft snapshot manifest]
+    H --> I[Embed and build indexes]
+    I --> J[Smoke test]
+    J --> K[Promote active snapshot]
+```
+
+Raw response is stored before validation for audit. A failed response remains a quarantined diagnostic artifact; only validated parsed artifacts can enter a manifest or be promoted.
+
+## Online query flow
 
 ```mermaid
 sequenceDiagram
-    participant C as Client
+    participant U as User
     participant A as API
-    participant O as Orchestrator
-    participant K as Cache
-    participant S as Search indexes
-    participant G as Legal graph
-    participant R as Reranker
+    participant Q as Query pipeline
+    participant G as Graph and indexes
     participant L as LLM
 
-    C->>A: POST /v1/qa
-    A->>O: validated query
-    O->>K: lookup normalized query + snapshot
-    alt cache hit
-        K-->>O: cached response
-    else cache miss
-        O->>S: BM25 + dense retrieval
-        S-->>O: candidates
-        O->>G: validity + hierarchy + amendment lookup
-        G-->>O: filtered candidates/context
-        O->>R: rerank candidate pool
-        R-->>O: ranked evidence
-        O->>L: grounded prompt with evidence
-        L-->>O: structured answer
-        O->>G: verify citation IDs
-        O->>K: cache safe result
-    end
-    O-->>A: answer + sources + warnings
-    A-->>C: response/stream
+    U->>A: POST /api/v1/qa
+    A->>Q: validated request and active snapshot
+    Q->>G: exact lookup plus lexical and dense retrieval
+    G-->>Q: candidate evidence
+    Q->>G: validity, hierarchy, and relation expansion
+    Q->>L: selected evidence only
+    L-->>Q: structured claims
+    Q->>G: citation resolver and verifier
+    Q-->>A: answer or abstain plus sources
+    A-->>U: traceable response
 ```
 
-## 5. Component decisions
+## Planned source layout
 
-| Component | v1 decision | Reason | Upgrade trigger |
-|---|---|---|---|
-| API | FastAPI | Hợp với Python NLP và async I/O | Traffic/concurrency thực tế vượt single service |
-| Orchestrator | Một query service rõ pipeline | Dễ trace và debug hơn agent tự trị | Có nhiều tool/source và query multi-step thật sự |
-| Graph | Neo4j | Phù hợp hierarchy/amendment và kế thừa repo | Graph query/index trở thành bottleneck |
-| Full-text | Neo4j full-text/BM25 hoặc adapter hiện có | Ít service, dễ tái lập | Corpus/throughput yêu cầu OpenSearch |
-| Vector | Neo4j vector index ban đầu | Đồng bộ đơn giản với node pháp luật | Corpus/load test chứng minh cần Qdrant |
-| Raw storage | Filesystem hoặc MinIO-compatible | Lưu raw immutable, rẻ và inspect được | Cần multi-node/object lifecycle |
-| Cache | In-memory/local trước; Redis khi deploy nhiều instance | Không thêm service sớm | Multi-instance hoặc cache hit đáng kể |
-| Worker | CLI/job runner resumable | Đủ cho ingestion theo lô | Cần scheduling/parallel workers |
-| LLM | Provider adapter, hosted/local tùy môi trường | Không khóa vendor | Cần routing/fallback nhiều provider |
-
-Không bắt buộc dùng PostgreSQL ở v1. Job manifest và kết quả run có thể lưu JSON/SQLite; thêm PostgreSQL khi cần nhiều operator hoặc concurrent jobs.
-
-## 6. Data and control boundaries
-
-- Raw source không bị overwrite; mỗi fetch tạo object có hash.
-- Parsed legal nodes chỉ được promote sau validation.
-- Index có `index_version` và trỏ về `data_snapshot_id`.
-- API chỉ đọc index active.
-- Worker build index mới ngoài request path rồi atomically promote.
-- LLM không có quyền ghi graph/index.
-
-## 7. Observability boundary
-
-Mỗi request sinh `trace_id` và log các stage:
+This is a target layout, not code to scaffold now. A directory is added only in its roadmap phase.
 
 ```text
-validate → rewrite → filter → lexical → dense → fusion → rerank
-→ graph_expand → select_context → generate → citation_verify
+src/traffic_legal_qa/
+  config.py                         # settings at process boundary
+  cli.py                            # curated ingest and evaluation commands
+  api/
+    app.py                          # FastAPI composition
+    routes.py                       # thin HTTP handlers
+    schemas.py                      # request and response validation
+  ingestion/
+    models.py                       # portal record, metadata, legal unit
+    portal.py                       # one concrete portal client
+    normalize.py                    # HTML to canonical text
+    parser.py                       # deterministic hierarchy parser
+    storage.py                      # raw, parsed, and manifest artifacts
+    pipeline.py                     # fetch, validate, store, parse
+  graph/
+    importer.py                     # parsed snapshot to Neo4j
+    validity.py                     # deterministic temporal logic
+  retrieval/
+    lexical.py                      # Neo4j full-text adapter
+    dense.py                        # embedding and vector adapter
+    fusion.py                       # RRF
+    rerank.py                       # optional bounded rerank
+    service.py                      # retrieval orchestration
+  qa/
+    service.py                      # context selection and generation flow
+    citations.py                    # deterministic citation resolver
+    prompts.py                      # versioned prompt artifacts
+  evaluation/
+    datasets.py
+    runner.py
+    metrics.py
+tests/
+  fixtures/                         # sanitized portal JSON and HTML samples
+  unit/
+  integration/
 ```
 
-Không log secret hoặc raw personal data. Log model/config/version để tái hiện lỗi.
+There is deliberately no generic source interface, repository layer, factory, event bus, or queue. v1 has one portal source and one graph store. A second real implementation is the trigger for an abstraction.
 
-## 8. Assumptions
+## Boundary rules
 
-- v1 chạy single-node hoặc Docker Compose.
-- Corpus nhỏ hơn nhiều so với “millions of PDFs”; không cần sharding/IVF/PQ ngay.
-- Legal graph là graph có schema và quan hệ xác định, không phải entity graph do LLM tự bịa.
+| Boundary | Owns | Must not own |
+|---|---|---|
+| `portal.py` | HTTP request and response schema | hierarchy parsing |
+| `normalize.py` | deterministic HTML-to-text | source networking or graph write |
+| `parser.py` | stable IDs and parent links | LLM calls or validity claims |
+| `storage.py` | hashes and artifacts | policy decisions |
+| `graph/` | graph, index persistence, temporal query | HTTP request handling |
+| `retrieval/` | candidate recall and ranking | answer prose |
+| `qa/` | grounded response and citation verification | arbitrary database queries |
+| `api/` | validation, auth/rate boundary, response shape | business logic |
 
-## 9. Failure modes
+## Architectural invariants
 
-- Một index build lỗi nhưng được promote nhầm.
-- Graph và vector index khác snapshot.
-- Cache không key theo snapshot/prompt/model.
-- LLM trả câu trả lời nhưng citation validator không chạy.
-- Một service down làm toàn bộ API mất khả năng search.
+1. The API query path is read-only against one active snapshot.
+2. Only promotion changes active snapshot or index pointers.
+3. Every answer source resolves through `unit_id → document → raw artifact → public URL`.
+4. The LLM receives selected evidence, never database credentials or unrestricted tools.
+5. Portal schema validation happens before any response can enter a corpus manifest; an invalid response may remain only as a quarantined diagnostic artifact.
 
-## 10. Acceptance criteria
+## Upgrade triggers
 
-- Sơ đồ trên phản ánh đúng request path và ingestion path thực tế.
-- Có thể chạy search không cần generation.
-- Có thể rebuild index từ raw data mà không sửa code thủ công.
-- Mỗi response truy ngược được tới data/index/model/prompt version.
-- Không có LLM call nào trực tiếp ghi dữ liệu pháp lý.
+| Measured evidence | Then consider |
+|---|---|
+| Neo4j lexical or vector p95 misses target | Benchmark specialized search storage |
+| Batch runs need durable parallel retry | Add a job store or queue |
+| Multiple API replicas need a shared cache | Add Redis |
+| Fixed pipeline fails multi-hop gold cases | Run a bounded agentic retrieval experiment |
+
+Until one trigger is measured, retain the simpler architecture.

@@ -1,204 +1,106 @@
 # 05. Retrieval and Reranking
 
-## Mục tiêu
+## Goal
 
-Thiết kế retrieval nhiều tầng để tối đa hóa recall ở candidate stage, sau đó cải thiện precision và legal context trước generation.
+Maximize recall before generation, then improve precision and legal context without losing traceability. Retrieval is the primary intelligence path; generation explains selected evidence.
 
-## 1. Retrieval contract
+## Input and candidate contract
 
-Input:
+Input contains a Vietnamese question, optional short conversation context, optional effective date, and filters.
 
-```text
-question
-conversation_context (optional)
-effective_at (optional)
-filters (optional)
-```
+Every candidate passed beyond first-stage retrieval contains:
 
-Output mỗi candidate:
+    unit_id
+    document_id
+    snapshot_id
+    text
+    unit_type
+    validity
+    source_url
+    retriever ranks and scores
 
-```json
-{
-  "unit_id": "...",
-  "text": "...",
-  "retriever": "bm25|dense|graph|...",
-  "rank": 1,
-  "score": 0.82,
-  "document_id": "...",
-  "validity": "current",
-  "metadata": {}
-}
-```
+A candidate without unit ID and snapshot is invalid for QA.
 
-Không để generator nhận candidate không có `unit_id`, snapshot hoặc validity metadata.
+Before any search, retrieval restricts candidates to the active snapshot and explicit user filters. When `effective_at` is available and validity can be determined from indexed metadata, a false candidate is excluded before ranking. `unknown` is retained only with its warning so the system can clarify or abstain rather than silently treating it as current.
 
-## 2. Query processing
+## Query handling
 
-### 2.1 Validation
+### Validation
 
-- Giới hạn độ dài và số message.
-- Chuẩn hóa Unicode/whitespace.
-- Nhận diện câu hỏi rỗng, ngoài domain, prompt injection pattern.
-- Giữ nguyên số hiệu, Điều, Khoản, Điểm, ngày tháng và tên phương tiện.
+- Enforce length and message-count limits.
+- Normalize Unicode and whitespace.
+- Preserve legal document IDs, article/clause/point references, dates, vehicle types, and amounts.
+- Detect empty, clearly out-of-domain, and prompt-injection-shaped input.
+- Do not rewrite a precise identifier into prose.
 
-### 2.2 Query rewrite
+### Rewrite and expansion
 
-Chỉ rewrite khi câu hỏi phụ thuộc lịch sử hội thoại hoặc có đại từ không rõ. Rewrite phải:
+Conversation rewrite is used only when the newest question contains unresolved references. Search the original question as well when rewrite confidence is low.
 
-- giữ nguyên ý định;
-- không thêm quy định chưa có trong input;
-- trả về structured output;
-- lưu `rewrite_version` và original query.
+Expansion is a measured candidate-recall feature, not an answer source. It may add common vehicle terminology, legal wording, or decomposed subqueries. It must preserve the original query and record its version. No expansion may invent a legal rule.
 
-Nếu rewrite confidence thấp, search cả original và rewritten query.
+## Retrieval stages
 
-### 2.3 Query expansion
+### Exact lookup
 
-Các dạng expansion có thể benchmark:
+If the question contains a document ID or provision reference, attempt deterministic lookup first. Exact lookup returns a source directly or contributes a high-confidence candidate; it does not bypass validity and citation checks.
 
-- synonym/abbreviation phương tiện;
-- từ khóa pháp lý tương ứng với cách nói đời thường;
-- số hiệu văn bản/điều khoản được trích xuất;
-- sub-query theo thành phần: hành vi, chủ thể, phương tiện, hậu quả, thời điểm.
+### Lexical retrieval
 
-Không dùng expansion nếu nó làm mất từ khóa định danh. Lưu cả query gốc để tránh drift.
+Full-text or BM25 retrieval is mandatory because it handles document IDs, article numbers, rare terms, and legal phrasing well.
 
-## 3. Metadata filtering
+### Dense retrieval
 
-Filter trước ANN/search khi có thể:
+Dense retrieval handles paraphrases between everyday Vietnamese questions and formal legal language. The chosen embedding model must be benchmarked on the project gold set, not selected from leaderboard reputation alone.
 
-```text
-domain = traffic
-document_type in allowed_types
-document_id = exact match (nếu user nêu)
-unit_type in article/clause/point
-validity at effective_at
-snapshot_id = active snapshot
-```
+### Fusion
 
-Nếu filter quá chặt làm candidate rỗng, retry một lần với filter mềm hơn và gắn warning; không âm thầm trả “không có luật”.
+The initial hybrid default is Reciprocal Rank Fusion:
 
-## 4. First-stage retrieval
+    RRF(d) = Σ 1 / (k + rank_r(d))
 
-### 4.1 Lexical/BM25
+It is chosen because lexical and dense scores need not share a calibrated scale. Keep fusion configuration versioned with each run.
 
-BM25 bắt tốt:
+### Selective reranking
 
-- số hiệu văn bản;
-- Điều/Khoản/Điểm;
-- tên hành vi và thuật ngữ hiếm;
-- mã phương tiện/mức phạt.
+A cross-encoder reranks only a bounded candidate pool, maximum 50 in v1. It has a fallback to fused ranking. Reranking is not assumed to help; keep it only if the ablation improves the gold set within latency budget.
 
-Đây là baseline bắt buộc vì BEIR cho thấy lexical retrieval vẫn bền và mạnh trong nhiều domain.
+### Graph expansion
 
-### 4.2 Dense retrieval
+After ranking, retrieve only needed parent, child, sibling, and reviewed relation units. Expansion has fixed depth and count limits. Never insert an expanded unit into a claim unless it is included in the selected evidence set.
 
-Embedding dùng để bắt semantic match giữa câu hỏi đời thường và văn bản pháp lý. Model phải được benchmark trên tiếng Việt và data domain; không mặc định model đa ngôn ngữ tốt nhất.
+Validity is resolved before final context selection, so a structurally nearby but inapplicable provision cannot become evidence merely through graph expansion.
 
-Candidate pool mặc định: dense top 20–50.
+## Context selection
 
-### 4.3 Graph lookup
+The final context:
 
-Graph lookup phục vụ exact citation, hierarchy, validity và references. Graph không thay thế first-stage text retrieval.
+- prioritizes direct evidence;
+- groups units by document and hierarchy;
+- keeps server-generated citation markers immutable;
+- includes no more than ten evidence units by default;
+- avoids mixing current and repealed material unless the question is explicitly temporal;
+- carries validity warnings into generation.
 
-## 5. Fusion
+## Confidence and abstention signals
 
-RRF là default vì không cần đưa raw score của BM25 và vector về cùng scale:
+No single score is treated as legal confidence. The policy combines top score, score margin, retriever agreement, exact-match signal, candidate count, validity knownness, and citation-verifier result.
 
-```text
-RRF(d) = Σ_r 1 / (k + rank_r(d))
-```
+A low signal results in clarification or abstention, not an invented answer.
 
-`k` và trọng số nếu có phải được lưu trong retrieval config. Cần so sánh thêm weighted score khi có lý do; không tune trên test set.
-
-## 6. Reranking
-
-Cross-encoder nhận query và candidate text để xếp lại candidate pool nhỏ. Reranker:
-
-- không thể cứu document không nằm trong pool;
-- cần giới hạn độ dài input;
-- có thể lệch domain tiếng Việt;
-- phải có fallback về fused ranking khi lỗi.
-
-Heuristic legal signals chỉ dùng sau reranker và phải minh bạch:
-
-- exact document/article match;
-- validity hard filter hoặc penalty có giải thích;
-- coverage của required entities;
-- parent/child completeness.
-
-Không dùng “newer document wins” như validity engine.
-
-## 7. Graph context expansion
-
-Sau rerank, với top evidence:
-
-1. lấy parent article/chapter để hiểu ngữ cảnh;
-2. lấy clause/point con nếu cần;
-3. lấy sibling khi question đề cập danh sách/ngoại lệ;
-4. lấy amendment/replacement neighbors nếu câu hỏi hỏi thời điểm;
-5. deduplicate theo unit và giới hạn context.
-
-Expansion được đánh giá bằng ablation; không mặc định lấy toàn bộ article/chapter.
-
-## 8. Context selection
-
-Context cuối phải:
-
-- ưu tiên evidence trực tiếp;
-- nhóm theo document và hierarchy;
-- giữ citation marker bất biến;
-- không quá 5–10 evidence units mặc định;
-- có token budget riêng cho answer;
-- không trộn current và repealed nếu không phục vụ câu hỏi lịch sử.
-
-## 9. Retrieval confidence
-
-Không dùng một score đơn độc làm xác suất. Response có thể có các signal:
-
-```text
-top_score
-score_margin
-candidate_count
-exact_match_found
-validity_known
-retriever_agreement
-reranker_fallback
-```
-
-Abstention policy kết hợp các signal này với threshold được calibrate trên validation set.
-
-## 10. Retrieval evaluation matrix
+## Required ablation matrix
 
 | Run | Lexical | Dense | RRF | Rerank | Graph expansion | Validity |
 |---|---:|---:|---:|---:|---:|---:|
-| R0 | ✓ |  |  |  |  |  |
-| R1 |  | ✓ |  |  |  |  |
-| R2 | ✓ | ✓ | ✓ |  |  |  |
-| R3 | ✓ | ✓ | ✓ | ✓ |  |  |
-| R4 | ✓ | ✓ | ✓ | ✓ | ✓ |  |
-| R5 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| R0 | Yes |  |  |  |  |  |
+| R1 |  | Yes |  |  |  |  |
+| R2 | Yes | Yes | Yes |  |  |  |
+| R3 | Yes | Yes | Yes | Yes |  |  |
+| R4 | Yes | Yes | Yes | Yes | Yes |  |
+| R5 | Yes | Yes | Yes | Yes | Yes | Yes |
 
-## 11. Assumptions
+All rows use the same snapshot and held-out questions. A comparison that changes multiple variables is not evidence for a component.
 
-- Corpus v1 đủ nhỏ để Neo4j full-text/vector đáp ứng benchmark.
-- Reranker local có thể cần GPU hoặc precompute; API phải có fallback.
-- Query expansion chỉ là candidate enhancement, không được coi là ground truth.
+## Deferred complexity
 
-## 12. Failure modes
-
-- Dense retrieval bỏ lỡ số hiệu chính xác.
-- BM25 bỏ lỡ paraphrase đời thường.
-- RRF đưa nhiều duplicate unit lên top.
-- Reranker ưu tiên văn bản cũ vì lexical overlap.
-- Graph expansion làm context vượt token budget.
-- Query rewrite làm thay đổi chủ thể/phương tiện/thời gian.
-
-## 13. Acceptance criteria
-
-- Có baseline BM25 và dense độc lập.
-- Hybrid run sử dụng RRF hoặc phương pháp fusion được ghi rõ.
-- Reranker chỉ chạy trên candidate pool có giới hạn.
-- Mọi candidate có citation ID và snapshot.
-- Có fallback khi embedding/reranker/index lỗi.
-- Có ablation report cho từng tầng.
+Learning-to-rank, query decomposition by an LLM, and agentic retrieval are deferred. Introduce each only after error analysis identifies a failure that the simpler pipeline cannot address.

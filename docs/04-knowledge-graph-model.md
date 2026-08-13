@@ -1,189 +1,123 @@
 # 04. Knowledge Graph Model
 
-## Mục tiêu
+## Decision
 
-Biểu diễn cấu trúc văn bản và quan hệ pháp lý có nguồn gốc rõ ràng để hỗ trợ retrieval, validity filtering, context expansion và citation.
+The graph is a deterministic legal graph. It represents source hierarchy, reviewed temporal relations, and snapshot lineage. It is not an open-ended entity graph inferred by an LLM.
 
-## 1. Modeling decision
+Every node and relationship must trace to a reviewed parsed artifact and source provenance.
 
-Graph của hệ thống là **deterministic legal graph**, không phải knowledge graph mở do LLM tự trích xuất. Mỗi node/edge pháp lý phải truy ngược được tới document snapshot và source locator.
+## Node model
 
-## 2. Node types
-
-| Label | Ý nghĩa | Bắt buộc |
+| Label | Purpose | Required |
 |---|---|---:|
-| `LegalDocument` | Luật, nghị định, thông tư, quyết định hoặc văn bản liên quan | Có |
-| `Part` | Phần | Nếu có |
-| `Chapter` | Chương | Nếu có |
-| `Section` | Mục | Nếu có |
-| `Article` | Điều | Có |
-| `Clause` | Khoản | Nếu có |
-| `Point` | Điểm | Nếu có |
-| `Appendix` | Phụ lục | Nếu corpus cần |
-| `Snapshot` | Phiên bản data/index | Có ở control plane |
+| LegalDocument | One canonical source document inside one snapshot | Yes |
+| LegalUnit | One Part, Chapter, Section, Article, Clause, or Point | Yes |
+| Snapshot | Reviewed data snapshot | Yes |
+| RelationEvidence | Provenance for reviewed cross-document relation | When relation exists |
 
-Trong implementation có thể dùng một label `LegalUnit` kèm `unit_type`, nhưng ID và hierarchy phải ổn định.
+Using one LegalUnit label with a unit_type property keeps the v1 import simpler. Citation IDs never use Neo4j internal IDs or vector IDs.
 
-## 3. Node properties
+### LegalDocument properties
 
-### LegalDocument
+    document_key
+    document_id
+    portal_document_guid
+    title
+    document_type
+    issuer
+    issued_date
+    effective_from
+    effective_to
+    status
+    source_url
+    content_sha256
+    snapshot_id
 
-```text
-document_id          số hiệu chuẩn hóa, unique
-title
-document_type        law/decree/circular/decision/other
-issuer
-issued_date
-effective_from
-effective_to
-status               current/repealed/amended/unknown
-domain               traffic
-source_url
-source_hash
-snapshot_id
-```
+`document_key` is `${snapshot_id}::${document_id}`. It is the graph identity; `document_id` remains the stable public legal identifier.
 
-### LegalUnit
+### LegalUnit properties
 
-```text
-unit_id              immutable logical ID
-document_id
-unit_type            part/chapter/section/article/clause/point
-number
-title
-text
-normalized_text
-parent_id
-path                 stable parent-to-self unit IDs
-validity
-source_locator
-parser_version
-```
+    unit_key
+    unit_id
+    document_id
+    unit_type
+    number
+    title
+    text
+    parent_id
+    path
+    parser_version
+    snapshot_id
 
-`unit_id` phải giữ được citation ngay cả khi text được re-index. Không dùng vector ID làm citation ID.
+`unit_key` is `${snapshot_id}::${unit_id}`. It is the graph identity; `unit_id` remains the stable public provision identifier.
 
-## 4. Relationship types
+## Relationship model
 
-| Relationship | Hướng | Ý nghĩa |
+| Type | Direction | Meaning |
 |---|---|---|
-| `CONTAINS` | parent → child | Cấu trúc văn bản |
-| `PART_OF` | child → parent | Shortcut tùy query |
-| `AMENDS` | amendment doc/unit → amended doc/unit | Sửa đổi/bổ sung |
-| `REPEALS` | new doc/unit → old doc/unit | Bãi bỏ |
-| `REPLACES` | new doc/unit → old doc/unit | Thay thế |
-| `GUIDES` | guidance doc → target doc/unit | Hướng dẫn |
-| `REFERENCES` | unit → referenced unit | Dẫn chiếu |
-| `SAME_AS` | unit ↔ unit | Chỉ dùng khi có căn cứ xác minh |
-| `BELONGS_TO_SNAPSHOT` | unit/doc → snapshot | Data lineage |
+| CONTAINS | document/unit → unit | Deterministic hierarchy |
+| BELONGS_TO | document/unit → snapshot | Data lineage |
+| AMENDS | newer document/unit → older document/unit | Reviewed amendment |
+| REPEALS | newer document/unit → older document/unit | Reviewed repeal |
+| REPLACES | newer document/unit → older document/unit | Reviewed replacement |
+| REFERENCES | unit → document/unit | Reviewed legal reference |
+| EVIDENCED_BY | RelationEvidence → unit | Source provision that proves a relation |
 
-Không tạo `AMENDS` chỉ vì hai văn bản có cùng từ khóa. Relation phải có source/provenance.
+Cross-document edges connect records in the same snapshot and have `relation_id`, `snapshot_id`, review status, and effective dates. The matching `RelationEvidence` node has `relation_id`, relation type, `evidence_unit_id`, source URL, raw hash, reviewer date, and note; it is linked to the source provision with `EVIDENCED_BY`. A candidate relation is stored outside the active graph or marked unreviewed; it cannot affect public validity answers.
 
-## 5. Graph schema
+## Hierarchy and citation
 
 ```mermaid
 graph TD
-    D1[LegalDocument: 36/2024/QH15]
-    P1[Part]
-    C1[Chapter]
-    A1[Article 11]
-    K1[Clause 2]
-    I1[Point a]
-    D2[LegalDocument: later amendment]
-    A2[Amended Article/Clause]
-    S[Snapshot: traffic-2026-08-12-v1]
+    D[LegalDocument]
+    C[Chapter]
+    A[Article]
+    K[Clause]
+    P[Point]
+    S[Snapshot]
 
-    D1 -->|CONTAINS| P1
-    P1 -->|CONTAINS| C1
-    C1 -->|CONTAINS| A1
-    A1 -->|CONTAINS| K1
-    K1 -->|CONTAINS| I1
-    D2 -->|AMENDS| A1
-    D2 -->|AMENDS| A2
-    D1 -->|BELONGS_TO_SNAPSHOT| S
-    A1 -->|BELONGS_TO_SNAPSHOT| S
+    D -->|CONTAINS| C
+    C -->|CONTAINS| A
+    A -->|CONTAINS| K
+    K -->|CONTAINS| P
+    D -->|BELONGS_TO| S
+    P -->|BELONGS_TO| S
 ```
 
-## 6. Validity model
+Display citation is generated server-side:
 
-### 6.1 Status semantics
+    [36/2024/QH15, Điều 11, khoản 2, điểm a]
 
-- `current`: có căn cứ cho thấy áp dụng tại `effective_at`.
-- `repealed`: bị bãi bỏ toàn bộ hoặc phần tương ứng.
-- `amended`: bản gốc có sửa đổi; answer phải lấy text/quan hệ hiện hành phù hợp.
-- `unknown`: chưa đủ metadata; không được trình bày như current.
+The resolver maps display data to `(snapshot_id, unit_id)`, source URL, and parent chain. The snapshot is carried in the response metadata and citation object; a display label alone is not a database key.
 
-### 6.2 Effective date query
+## Validity model
 
-Hàm logic cần có:
+is_effective(unit_id, effective_at, snapshot_id) returns true, false, or unknown.
 
-```text
-is_effective(unit_id, effective_at, snapshot_id) -> true/false/unknown
-```
+- true: source metadata and reviewed relations support application at the date.
+- false: source metadata or reviewed relation excludes application at the date.
+- unknown: metadata or relation evidence is insufficient.
 
-Kết quả `unknown` là trạng thái hợp lệ và phải được đưa vào warning. Không dùng heuristic “văn bản mới hơn thì đúng hơn” thay cho hàm này.
+The system never uses “newer document wins” as a validity rule. If only document-level amendment is known, it must not claim a particular clause is superseded.
 
-### 6.3 Version lineage
+## Allowed graph operations
 
-Lineage phải cho phép:
+1. Resolve an exact unit and parent chain.
+2. Expand a bounded number of children or siblings around selected evidence.
+3. Read reviewed amendment, repeal, replacement, and reference neighbors.
+4. Evaluate validity at a date.
 
-```text
-current unit
-→ amendment source
-→ previous unit/document
-→ effective dates
-→ source evidence
-```
+The public API never accepts arbitrary Cypher or LLM-generated graph queries.
 
-Nếu chỉ biết document được sửa đổi nhưng chưa map được article/clause cụ thể, relation chỉ ở document level và không được claim rằng một điều cụ thể đã bị thay thế.
+## Integrity checks
 
-## 7. Retrieval-oriented graph operations
+- Unique constraints on `(snapshot_id, document_id)`, `(snapshot_id, unit_id)`, and `snapshot_id`.
+- CONTAINS is acyclic and has one deterministic parent.
+- A unit belongs to exactly one document and one imported snapshot artifact.
+- Every public cross-document relation has provenance and review status.
+- Every `AMENDS`, `REPEALS`, `REPLACES`, or `REFERENCES` edge has a matching approved `RelationEvidence` record.
+- Every citation resolves as `(active_snapshot_id, unit_id)`.
 
-Các operation được allowlist:
+## Deferred complexity
 
-1. lấy parent chain của evidence;
-2. lấy sibling cùng article khi evidence là clause/point;
-3. lấy child units để bổ sung điều kiện/ngoại lệ;
-4. lấy amendment/repeal/replacement neighbors;
-5. lấy referenced units tối đa depth giới hạn;
-6. kiểm tra validity tại một ngày.
-
-Không cho LLM sinh Cypher tùy ý trong public API. Nếu cần text-to-Cypher cho nghiên cứu, query phải read-only, giới hạn node/depth/time và validate AST/allowlist.
-
-## 8. Citation mapping
-
-Citation có thể hiển thị:
-
-```text
-[36/2024/QH15, Điều 11, khoản 2, điểm a]
-```
-
-Backend giữ mapping:
-
-```text
-display_citation → unit_id → graph node → source_url + locator
-```
-
-Citation validator phải reject ID không tồn tại, ID ngoài active snapshot hoặc ID không nằm trong evidence set của answer.
-
-## 9. Assumptions
-
-- Hierarchy có thể parse ổn định hơn entity extraction tự do.
-- Một legal unit có thể bị sửa đổi một phần; model phải hỗ trợ relation ở clause/point level.
-- Một document có thể có nhiều snapshot nhưng logical ID vẫn ổn định.
-
-## 10. Failure modes
-
-- Edge direction ngược làm validity traversal sai.
-- Merge theo title thay vì document number gây gộp nhầm.
-- Node current vẫn trỏ text cũ sau amendment.
-- Quan hệ candidate bị dùng như quan hệ đã xác minh.
-- Graph expansion lấy quá nhiều sibling làm nhiễu context.
-
-## 11. Acceptance criteria
-
-- Có uniqueness constraint cho document/unit ID.
-- Mọi `CONTAINS` tạo được một cây hierarchy không có cycle.
-- Mọi amendment/repeal/replacement edge có provenance.
-- Query validity trả được `true/false/unknown`.
-- Citation từ answer luôn resolve về unit tồn tại trong snapshot.
-- Graph expansion có depth/limit cố định và có test cho edge direction.
+No automatic legal relation extraction is required for v1. Start with manually reviewed document-level relations for the pilot corpus; add unit-level mappings only when a gold case requires them.

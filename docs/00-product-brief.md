@@ -1,96 +1,67 @@
 # 00. Product Brief
 
-## Mục tiêu
+## Product statement
 
-Định nghĩa sản phẩm, người dùng, giá trị và ranh giới của hệ thống trước khi triển khai.
+**Vietnamese Traffic Law Hybrid GraphRAG** helps users find verifiable Vietnamese road-traffic law from a curated corpus. It is a legal-information product, not a general chatbot or a substitute for professional legal advice.
 
-## 1. Executive summary
+Users ask in Vietnamese, for example:
 
-**Vietnamese Traffic Law Hybrid GraphRAG** là hệ thống hỏi đáp và tra cứu pháp luật giao thông đường bộ Việt Nam. Hệ thống nhận câu hỏi tự nhiên như “Đi xe máy vượt đèn đỏ bị phạt bao nhiêu?” hoặc “Quy định này hiện còn hiệu lực không?”, sau đó:
+- “Đi xe máy vượt đèn đỏ bị xử lý thế nào?”
+- “Tôi cần mang giấy tờ gì khi điều khiển xe?”
+- “Quy định này có còn áp dụng vào ngày X không?”
 
-1. chuẩn hóa câu hỏi;
-2. lọc theo domain, loại phương tiện, loại văn bản và thời điểm áp dụng;
-3. tìm kiếm bằng keyword và semantic retrieval;
-4. hợp nhất kết quả và rerank;
-5. mở rộng ngữ cảnh theo cấu trúc điều/khoản/điểm và quan hệ sửa đổi;
-6. kiểm tra citation và hiệu lực;
-7. sinh câu trả lời ngắn gọn, có căn cứ và có khả năng từ chối khi thiếu bằng chứng.
+The product answers only when the selected evidence supports the claim. It returns a citation to document, article, clause, or point; shows validity information and the public source link; and asks for clarification or abstains when evidence is insufficient.
 
-Sản phẩm ưu tiên **độ tin cậy của retrieval và citation** hơn việc tạo câu trả lời dài. Đây là một sản phẩm AI Engineer hoàn chỉnh trong phạm vi domain hẹp, không phải chatbot tổng quát và không tuyên bố là hệ thống tư vấn pháp lý.
+## Target users
 
-## 2. Product statement
-
-> Giúp người dân, sinh viên và nhân sự vận hành giao thông tìm đúng quy định pháp luật giao thông Việt Nam và hiểu căn cứ pháp lý hiện hành mà không phải đọc thủ công nhiều văn bản liên quan.
-
-## 3. Target users
-
-| Persona | Nhu cầu | Rủi ro cần kiểm soát |
+| Persona | Need | Product boundary |
 |---|---|---|
-| Người dân/người lái xe | Hỏi nhanh về lỗi, giấy tờ, mức phạt, điều kiện tham gia giao thông | Hiểu nhầm câu trả lời là tư vấn pháp lý cuối cùng |
-| Sinh viên/người học luật | Tra cứu điều khoản, so sánh văn bản và phiên bản | Citation thiếu hoặc dùng văn bản cũ |
-| Nhân sự vận tải/doanh nghiệp nhỏ | Tìm quy định vận tải, phương tiện, trách nhiệm | Bỏ sót văn bản liên quan |
-| Người đánh giá hệ thống | Kiểm tra retrieval, citation, latency và cập nhật dữ liệu | Metric đẹp nhưng không phản ánh tính đúng pháp lý |
+| Road user | Understand duties, violations, and procedures | Do not infer personal legal liability from incomplete facts |
+| Student or law learner | Locate provisions and their hierarchy | Do not provide unverifiable citations |
+| Small transport operator | Find relevant transport rules | Do not present stale provisions as current |
+| Reviewer | Audit data, retrieval, and citations | Do not hide defects behind fluent prose |
 
-## 4. Core value proposition
+## Core value
 
-- **Có căn cứ:** mỗi câu trả lời gắn với document/article/clause/point cụ thể.
-- **Có thời điểm:** người dùng có thể hỏi theo ngày hoặc xem trạng thái hiện tại.
-- **Hiểu cấu trúc pháp luật:** hệ thống biết một điểm thuộc khoản và điều nào.
-- **Tìm kiếm lai:** keyword bắt số hiệu/điều khoản; dense retrieval bắt cách diễn đạt tự nhiên.
-- **Minh bạch:** hiển thị nguồn, score/quality signal và lý do abstain khi có.
-- **Có thể đánh giá:** mọi tầng từ parser đến answer đều có metric riêng.
+1. **Grounded:** each legal claim has evidence.
+2. **Temporal:** answers are tied to `effective_at` or the snapshot date.
+3. **Structured:** a point belongs to a clause and an article; context expansion is bounded.
+4. **Auditable:** an answer can be traced to an index, parsed unit, raw portal response, and public URL.
+5. **Measurable:** retrieval and citation are evaluated separately from generation fluency.
 
-## 5. Product boundaries
+## Domain boundary
 
 ### In scope
 
-- Pháp luật giao thông đường bộ Việt Nam.
-- Văn bản quy phạm pháp luật và văn bản liên quan trực tiếp đến giao thông trong data manifest.
-- Hỏi đáp một lượt và hội thoại ngắn có rewrite câu hỏi.
-- Tra cứu điều/khoản/điểm.
-- So sánh hiệu lực, sửa đổi, thay thế, bãi bỏ trong phạm vi quan hệ đã được xác minh.
-- Hiển thị citation và link nguồn.
-- Offline ingestion có version, retry, validation và re-index.
-- Evaluation dataset và dashboard/log cơ bản.
+- Curator-approved laws, decrees, circulars, and directly relevant documents on Vietnamese road traffic.
+- Exact provision lookup, natural-language search, validity-aware answers, and multi-document questions within the active snapshot.
+- Operator workflows for curation, ingest, evaluation, and snapshot promotion.
 
 ### Out of scope
 
-- Tư vấn pháp lý chính thức hoặc kết luận trách nhiệm pháp lý.
-- Toàn bộ pháp luật Việt Nam.
-- Phán đoán kết quả tranh chấp, kiện tụng hoặc xử lý hồ sơ cá nhân.
-- Nhận diện biển báo từ camera trong v1.
-- Tự động nộp phạt, khiếu nại hoặc thực hiện hành động pháp lý.
-- Fine-tuning LLM trước khi có benchmark chứng minh RAG không đủ.
-- Multi-agent tự trị chỉ để làm đẹp kiến trúc.
+- The whole Vietnamese legal system or every record exposed by a portal search.
+- Official legal advice, dispute prediction, filing fines or complaints, and personal-case handling.
+- Camera analysis, traffic-sign recognition, or unbounded crawling.
+- Default agent loops, multi-agent coordination, arbitrary graph queries, and fine-tuning before benchmark evidence exists.
 
-## 6. Success definition
+## Data decision
 
-Sản phẩm được xem là đạt v1 khi có thể ingest một data snapshot có thể tái lập, phục vụ câu hỏi qua API/UI, trả citation hợp lệ, biết abstain trong các ca thiếu evidence và có báo cáo ablation cho retrieval. Mục tiêu chất lượng cụ thể nằm trong [07-evaluation-plan.md](07-evaluation-plan.md), không được coi là kết quả đã đạt trước khi chạy benchmark.
+The primary source is the National Legal Portal. The planned client uses the same JSON endpoints as its web interface to fetch metadata and `docContent` HTML. It saves the response unchanged before deterministic normalization and hierarchy parsing.
 
-## 7. Assumptions
+Because this interface is UI-backed rather than a versioned public developer API, the curated catalog stores a reviewed portal GUID for every source. Each ingestion run validates the response schema before any parsed data enters a snapshot.
 
-- Nguồn chính được lấy từ cổng pháp luật chính thống và lưu lại URL, timestamp, hash.
-- Corpus ban đầu kế thừa khoảng 12 văn bản traffic trong repo tham khảo; trước khi đánh giá phải đóng băng thành manifest có version.
-- Mục tiêu đồ án là khoảng 15–30 document/version records và tối thiểu 300 câu hỏi được kiểm tra citation; target tốt hơn là 500 câu.
-- Có thể dùng LLM hosted cho generation trong môi trường demo; embedding/reranker nên benchmark được bằng model local.
-- Một người hoặc nhóm nhỏ vận hành, nên ưu tiên ít service và pipeline dễ debug.
+A source without complete readable structured HTML is marked `blocked_no_structured_content`. It is not parsed, indexed, or cited until a curator approves another structured source.
 
-## 8. Failure modes chính
+## v1 success definition
 
-- Trả lời đúng ngôn ngữ nhưng sai điều luật.
-- Trích dẫn tồn tại nhưng không hỗ trợ claim.
-- Dùng văn bản đã bị thay thế.
-- Retrieval không lấy được điều đúng nên reranker không thể sửa.
-- Parser làm mất cấu trúc hoặc nhầm số điều.
-- LLM bị prompt injection qua nội dung văn bản hoặc câu hỏi.
-- LLM/API timeout hoặc trả output sai schema.
-- Dữ liệu nguồn thay đổi nhưng index vẫn cũ.
+v1 is complete only when a new operator can rebuild a reviewed snapshot, run search and QA, resolve every displayed citation, and reproduce an evaluation report. A chat screen that produces plausible text is not a success criterion.
 
-## 9. Acceptance criteria
+## Key failure modes to demonstrate
 
-- Người dùng hỏi được bằng tiếng Việt và nhận câu trả lời có nguồn.
-- Mỗi source có mã văn bản, điều/khoản/điểm và URL hoặc định danh data snapshot.
-- Hệ thống phân biệt được `current`, `repealed`, `amended`, `unknown`.
-- Có câu trả lời abstain khi không có evidence đạt ngưỡng.
-- Có thể tái lập index từ raw data bằng một lệnh/job.
-- Có test/metric cho parser, retrieval, citation và API contract.
+- Retrieved text sounds relevant but does not support the claim.
+- A citation resolves but is outside the active snapshot.
+- A question lacks vehicle type or time and the system answers too confidently.
+- Validity metadata is incomplete.
+- The upstream portal response changes shape or omits content.
+
+Requirements are defined in [01-scope-and-requirements.md](01-scope-and-requirements.md); implementation boundaries are defined in [02-system-architecture.md](02-system-architecture.md).

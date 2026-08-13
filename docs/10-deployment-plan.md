@@ -1,127 +1,93 @@
 # 10. Deployment Plan
 
-## Mục tiêu
+## Environments
 
-Đưa hệ thống từ local development tới một demo có thể chạy lại và trình diễn như sản phẩm hoàn chỉnh, nhưng không triển khai hạ tầng lớn khi chưa cần.
-
-## 1. Environments
-
-| Environment | Mục đích | Dữ liệu |
+| Environment | Purpose | Data |
 |---|---|---|
-| `dev` | Parser/retrieval development | Fixture nhỏ |
-| `eval` | Benchmark/ablation | Snapshot cố định, QA gold |
-| `demo` | UI/API trình diễn | Active traffic snapshot |
+| dev | Parser and service development | Sanitized fixtures and tiny local snapshot |
+| eval | Reproducible benchmark | Frozen snapshot and held-out gold set |
+| demo | Portfolio demonstration | Promoted reviewed traffic snapshot |
 
-Không dùng cùng index writable cho dev và demo.
+Dev must not write to the demo snapshot.
 
-## 2. Recommended v1 deployment
+## v1 topology
 
 ```mermaid
 flowchart TB
-    Browser[Browser/UI]
-    API[FastAPI container]
-    Worker[Ingestion/Evaluation worker]
-    Neo4j[(Neo4j graph + full-text/vector)]
-    Raw[(Raw data volume or object storage)]
-    Cache[(Optional Redis)]
-    LLM[Hosted/local LLM endpoint]
+    Browser[Browser UI]
+    API[FastAPI process]
+    Worker[CLI or worker process]
+    Neo4j[(Neo4j)]
+    Artifacts[(Filesystem or object storage)]
+    LLM[Optional LLM provider]
 
     Browser --> API
     API --> Neo4j
-    API --> Cache
     API --> LLM
-    Worker --> Raw
+    Worker --> Artifacts
     Worker --> Neo4j
     Worker --> LLM
 ```
 
-Docker Compose là đủ cho v1. Không cần Kubernetes.
+Docker Compose is sufficient once API, graph, and UI exist. A cluster orchestrator is not a v1 requirement.
 
-## 3. Service responsibilities
+## Responsibilities
 
-- `api`: read-only query path, health/readiness, auth/rate limit.
-- `worker`: discovery, fetch, parse, relation validation, embeddings, index build, evaluation.
-- `neo4j`: legal graph và index được version hóa.
-- `raw storage`: immutable raw content/manifest/reports.
-- `redis`: optional cache; không chứa source of truth.
-- `llm`: external dependency qua provider adapter.
+- API: read-only QA/search path, health/readiness, input boundary, rate limits.
+- Worker or CLI: curated fetch, artifact storage, parse, validation, embedding, index build, evaluation, and promotion.
+- Neo4j: legal graph plus lexical and vector indexes.
+- Artifact storage: raw response, normalized text, parsed documents, manifests, reports, and evaluation outputs.
+- LLM provider: optional generation dependency behind a small provider adapter.
 
-## 4. Configuration
+## Configuration contract
 
-Configuration phải qua environment/config file, không hardcode:
+The future runtime configuration contains only environment-specific values:
 
-```text
-APP_ENV
-NEO4J_URI
-NEO4J_USERNAME
-NEO4J_PASSWORD
-RAW_STORAGE_PATH
-ACTIVE_SNAPSHOT_ID
-EMBEDDING_MODEL
-RERANKER_MODEL
-LLM_PROVIDER
-LLM_MODEL
-LLM_TIMEOUT_SECONDS
-RATE_LIMIT
-```
+    APP_ENV
+    ARTIFACT_ROOT
+    ACTIVE_SNAPSHOT_ID
+    NEO4J_URI
+    NEO4J_USERNAME
+    NEO4J_PASSWORD
+    EMBEDDING_MODEL
+    RERANKER_MODEL
+    LLM_PROVIDER
+    LLM_MODEL
+    LLM_TIMEOUT_SECONDS
+    RATE_LIMIT
 
-Secret không commit vào repository. `.env.example` chỉ chứa placeholder.
+Secrets never enter Git, images, or logs.
 
-## 5. Release flow
+## Release flow
 
-```text
-commit
-→ unit/parser tests
-→ build image
-→ ingest/eval fixture
-→ security/contract checks
-→ build data snapshot/index
-→ retrieval smoke tests
-→ promote demo config
-→ monitor
-```
+    commit
+    → unit and contract tests
+    → fixture ingestion
+    → build draft snapshot and indexes
+    → retrieval smoke tests
+    → evaluation gate
+    → promote snapshot
+    → demo monitoring
 
-Code release và data/index release có ID riêng.
+Code release and data/index promotion have separate version IDs.
 
-## 6. Backup and rollback
+## Rollback
 
-- Backup raw data, manifest và QA set.
-- Export graph/index metadata hoặc volume snapshot.
-- Giữ ít nhất index active và index previous.
-- Rollback bằng đổi `ACTIVE_SNAPSHOT_ID`/`ACTIVE_INDEX_VERSION`, không rebuild ngay trong incident.
-- Kiểm tra citation resolver sau rollback.
+- Keep raw artifacts, manifests, gold set, and at least active plus previous snapshot.
+- Roll back by moving the active snapshot/index pointer, not by rebuilding under incident pressure.
+- Re-run citation-resolution smoke tests after rollback.
+- If the source portal is unavailable, retain the last promoted snapshot and expose its date.
 
-## 7. Scaling triggers
+## Scaling triggers
 
-Chỉ nâng cấp khi có số đo:
-
-| Trigger | Upgrade |
+| Observation | Next action |
 |---|---|
-| Vector search p95 vượt target | Benchmark Qdrant |
-| Full-text query bottleneck | Benchmark OpenSearch |
-| Nhiều API replicas | Redis và external job store |
-| Ingest chạy quá lâu | Worker parallelism/job queue |
-| Graph query bottleneck | Query/index optimization trước khi tách graph |
-| LLM cost quá cao | Model routing/cache/local inference |
+| Search p95 misses target | Benchmark query and index optimization before new storage |
+| More than one API instance | Add shared cache only if measurements justify it |
+| Ingest duration blocks planned refresh | Add bounded worker parallelism, then durable queue if needed |
+| LLM cost is too high | Benchmark cache, smaller model, or provider routing |
+| Corpus or throughput exceeds Neo4j capability | Evaluate specialized index storage using same gold set |
 
-## 8. Assumptions
+## Deployment acceptance
 
-- Demo có thể dùng một máy có Neo4j và optional GPU cho reranker.
-- API không cần public internet exposure trong giai đoạn đầu.
-- Data update theo lịch/manual trigger, không yêu cầu streaming CDC.
-
-## 9. Failure modes
-
-- Container chạy nhưng index chưa ready.
-- LLM env thiếu key làm health check sai.
-- Volume mất khiến graph còn nhưng raw manifest mất.
-- Promote snapshot chưa smoke-test.
-- Version code mới đọc schema snapshot cũ không tương thích.
-
-## 10. Acceptance criteria
-
-- Một người mới có thể chạy dev/eval/demo theo README/deployment notes.
-- Health và readiness phân biệt process sống với dependency sẵn sàng.
-- Có rollback snapshot/index được kiểm thử.
-- Không secret trong image/log/repository.
-- Deployment không yêu cầu cluster phức tạp cho v1.
+A clean machine can run the dev fixture path and the demo path from documented commands. Health and readiness are separate, and readiness remains false until a promoted snapshot is available.

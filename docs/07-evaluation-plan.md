@@ -1,193 +1,117 @@
 # 07. Evaluation Plan
 
-## Mục tiêu
+## Purpose
 
-Đo riêng từng tầng của hệ thống để biết lỗi nằm ở data, parser, retrieval, graph, generator hay vận hành. Không dùng một điểm LLM-as-a-judge duy nhất để kết luận hệ thống tốt.
+Evaluation isolates failure by layer: source contract, parser, retrieval, graph, validity, citation, generation, or operations. A single model-judge score is insufficient evidence for legal QA quality.
 
-## 1. Evaluation datasets
+## Gold question set
 
-### 1.1 Gold QA set
+The v1 target is 300–500 reviewed Vietnamese questions. Start with 30 pilot questions before building retrieval.
 
-Target cho đồ án: 300–500 câu hỏi tiếng Việt được review citation. Mỗi câu có:
+Each question stores:
 
-- question;
-- gold article/clause/point IDs;
-- gold document/version;
-- effective_at;
-- answer hoặc answer key;
-- question type;
-- difficulty;
-- reviewer status.
+    question_id
+    question
+    gold_document_ids
+    gold_unit_ids
+    effective_at
+    answer_key or reviewer notes
+    question_type
+    difficulty
+    review_status
 
-### 1.2 Taxonomy
+Question taxonomy includes definitions, obligations, prohibitions, penalties, procedures, temporal validity, comparisons, multi-document questions, ambiguity, and out-of-domain cases.
 
-| Type | Ví dụ khái quát |
-|---|---|
-| Definition | phương tiện/chủ thể/thuật ngữ là gì |
-| Obligation | phải mang giấy tờ/trang bị gì |
-| Prohibition | hành vi nào bị cấm |
-| Penalty | hành vi bị xử phạt thế nào |
-| Procedure | thủ tục/điều kiện thực hiện |
-| Temporal | quy định có hiệu lực khi nào |
-| Comparison | văn bản hiện tại khác bản cũ thế nào |
-| Multi-document | cần luật + nghị định/hướng dẫn |
-| Ambiguous | thiếu phương tiện/thời điểm/địa điểm |
-| Out-of-domain | không thuộc traffic law |
+Paraphrases with the same intent and gold units stay in one split. Temporal versions must not leak across development and test data.
 
-### 1.3 Splits
+## Metrics by layer
 
-- `train/dev/test` chỉ dùng nếu có model tuning.
-- Với retrieval, test set phải giữ kín trước khi chọn model/threshold.
-- Paraphrase cùng intent và cùng gold units phải nằm cùng split.
-- Temporal test phải có cases current/repealed/amended.
+### Source and parser
 
-## 2. Retrieval metrics
+- portal schema pass rate;
+- raw-to-normalized reproducibility;
+- hierarchy precision and recall on fixtures;
+- duplicate or orphan unit count;
+- catalog-to-manifest coverage.
 
-Với mỗi question, gold set là các legal units được reviewer xác nhận:
+### Retrieval
 
-- `Recall@1`, `Recall@3`, `Recall@5`, `Recall@10`;
-- `MRR`;
-- `nDCG@k` nếu có graded relevance;
-- document-level recall;
-- unit-level recall;
+- unit and document Recall at 1, 3, 5, and 10;
+- MRR;
+- nDCG when graded labels exist;
 - validity-aware recall;
-- citation precision/recall.
+- exact-identifier lookup accuracy.
 
-Phải report micro và macro; macro tránh domain phổ biến lấn át các category khó.
+Report macro and micro scores and inspect query categories separately.
 
-## 3. Citation and legal correctness
+### Citation and answer
 
-### 3.1 Citation validity
+| Dimension | Measurement |
+|---|---|
+| Citation existence | Every ID resolves |
+| Citation membership | Every citation was selected evidence |
+| Citation support | Reviewer confirms claim support |
+| Version correctness | Citation is valid for effective date |
+| Unsupported claim rate | Claims without adequate evidence |
+| Abstention precision and recall | Abstain only when appropriate |
+| Answer correctness | Reviewer rubric, secondary to citation |
 
-```text
-citation_exists
-citation_in_evidence
-citation_supports_claim
-citation_has_correct_scope
-citation_has_correct_version
-```
+ROUGE, BERTScore, and LLM-as-a-judge are supplementary. They cannot override citation review.
 
-### 3.2 Answer rubric
+### System
 
-Mỗi mẫu được chấm 0–2 cho:
+- stage and end-to-end p50/p95 latency;
+- timeout and error rate;
+- active snapshot age;
+- ingestion failure rate;
+- cache hit rate when cache exists;
+- token usage and estimated cost;
+- index build duration.
 
-| Dimension | 0 | 1 | 2 |
-|---|---|---|---|
-| Factual correctness | Sai | Một phần đúng | Đúng |
-| Citation correctness | Sai/không có | Có nhưng thiếu | Đúng và đủ |
-| Completeness | Thiếu nghiêm trọng | Thiếu chi tiết | Đủ cho câu hỏi |
-| Validity awareness | Dùng sai version | Có warning nhưng chưa rõ | Xử lý đúng |
-| Clarity | Khó hiểu | Chấp nhận được | Dễ hiểu |
-| Abstention behavior | Đoán sai | Cảnh báo yếu | Từ chối đúng lúc |
+## Ablations
 
-Human reviewer nên là người hiểu pháp luật; nếu không có chuyên gia, ghi rõ reviewer limitation.
+Run R0 through R5 from [05-retrieval-and-reranking.md](05-retrieval-and-reranking.md) with the same snapshot, split, evaluator, and model settings. Add generation only after the best retrieval configuration is selected without test leakage.
 
-## 4. Generation metrics
+## Error analysis
 
-- Exact match/ROUGE/BERTScore chỉ là supplementary vì long-form legal answer có nhiều cách diễn đạt.
-- Groundedness: claim có evidence support.
-- Citation coverage: tỷ lệ claim pháp lý có citation đúng.
-- Citation precision: citation trả về có liên quan không.
-- Unsupported claim rate.
-- Abstention precision/recall.
-- LLM-as-a-judge dùng rubric cố định, model/version cố định, chỉ là secondary signal.
+For every meaningful run, sample failures and label one root cause:
 
-## 5. System metrics
+1. source response or normalization issue;
+2. parser lost structure;
+3. gold unit absent from candidate pool;
+4. gold unit present but ranked too low;
+5. reranker degraded rank;
+6. graph expansion added noise or omitted condition;
+7. validity relation incorrect or unknown;
+8. generator ignored evidence;
+9. citation resolver rejected an otherwise valid answer;
+10. ambiguity should have triggered clarification.
 
-Mỗi run phải đo:
+Convert recurring failures into fixtures or golden cases. Do not simply tune a threshold until the aggregate metric rises.
 
-- p50/p95 latency theo stage;
-- end-to-end latency;
-- timeout/error rate;
-- cache hit rate;
-- token usage và estimated cost/query;
-- embedding throughput;
-- indexing time;
-- ingest freshness;
-- parser warning/failure rate;
-- citation validation failure rate;
-- abstention rate;
-- active snapshot ID.
+## Proposed release targets
 
-## 6. Required ablations
+These are gates to review, not promises:
 
-```text
-A0: BM25 only
-A1: Dense only
-A2: BM25 + dense + RRF
-A3: A2 + reranker
-A4: A3 + hierarchy expansion
-A5: A4 + amendment/version filtering
-A6: A5 + query rewrite/expansion
-A7: A5 + cache/production optimizations (quality unchanged target)
-```
+- unit Recall@10 at least 0.80 on held-out traffic questions;
+- citation resolve rate at least 0.98;
+- reviewer citation-support rate at least 0.90;
+- unsupported claim rate no more than 0.05 on reviewed answers;
+- all evaluation results reproducible from their recorded versions.
 
-Mỗi ablation phải dùng cùng snapshot, question split, model và evaluator. Chỉ thay đúng component đang nghiên cứu.
+If a target is missed, report the root-cause analysis and limitation rather than quietly changing the threshold.
 
-## 7. Error analysis
+## Run record
 
-Mỗi run lưu top candidates và phân loại lỗi:
-
-1. gold không nằm trong candidate pool;
-2. gold có nhưng rank thấp;
-3. reranker làm tụt gold;
-4. graph expansion thiếu hoặc thêm nhiễu;
-5. validity filter sai;
-6. generator không dùng evidence;
-7. citation mapping lỗi;
-8. câu hỏi mơ hồ nhưng hệ thống không hỏi lại.
-
-Mục tiêu là chuyển mỗi failure thành một test case; không chỉ tối ưu aggregate metric.
-
-## 8. Benchmark acceptance targets
-
-Đây là ngưỡng đề xuất để quyết định v1, không phải cam kết kết quả trước khi đo:
-
-- unit Recall@10 ≥ 0.80 trên gold set traffic;
-- citation existence/resolve ≥ 0.98;
-- citation correctness do reviewer đánh giá ≥ 0.90;
-- unsupported claim rate ≤ 0.05 trên tập review;
-- validity-aware accuracy được report riêng, không gộp vào answer score;
-- p95 online request ≤ 15 giây với cấu hình demo;
-- ingest run có thể tái lập và rollback.
-
-Nếu không đạt, phải báo failure analysis thay vì nới threshold tùy ý.
-
-## 9. Reproducibility
-
-Mỗi evaluation result chứa:
-
-```text
-run_id
-data_snapshot_id
-index_version
-question_set_version
-retriever_config
-reranker_config
-generator_config
-prompt_version
-metric_version
-git_commit
-```
-
-## 10. Assumptions
-
-- 300 mẫu đủ cho baseline có ý nghĩa nhưng chưa đại diện toàn bộ traffic law.
-- Human review tốn công nên ưu tiên citation/validity hơn văn phong.
-- Metric threshold phải được điều chỉnh sau pilot, không lấy từ domain khác.
-
-## 11. Failure modes
-
-- Test leakage làm metric ảo.
-- LLM judge bị bias theo văn phong.
-- Gold annotation thiếu điều khoản thay thế.
-- Recall cao nhưng context selection bỏ mất evidence.
-- Đạt answer score nhưng citation không audit được.
-
-## 12. Acceptance criteria
-
-- Có một script/routine chạy được toàn bộ ablation matrix.
-- Xuất bảng retrieval, citation, answer và latency.
-- Có ít nhất 20 case error analysis thủ công.
-- Kết quả có đủ version metadata để tái lập.
-- Không báo một con số “accuracy” duy nhất như bằng chứng chất lượng pháp lý.
+    run_id
+    snapshot_id
+    catalog_version
+    index_version
+    question_set_version
+    retrieval_config
+    reranker_config
+    generator_config
+    prompt_version
+    metric_version
+    git_commit
+    timestamp

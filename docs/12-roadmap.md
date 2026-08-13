@@ -1,149 +1,111 @@
 # 12. Roadmap
 
-## Mục tiêu
+The roadmap is gate-based. A phase does not advance because a feature looks interesting; it advances when its exit evidence exists.
 
-Chia project thành các mốc có thể demo và đánh giá, tránh xây toàn bộ hạ tầng trước khi biết retrieval có hoạt động.
-
-## Phase 0: Research freeze
+## Phase 0: Research and data freeze
 
 ### Deliverables
 
-- Product brief và scope.
-- Data source policy.
-- Corpus manifest v0.
-- QA taxonomy và annotation guideline.
-- ADR baseline.
+- This documentation set approved as the implementation blueprint.
+- Seed catalog of about 12 reviewed portal GUIDs.
+- For each seed: manually verify identifier, title, readable HTML, public URL, and expected source metadata.
+- Thirty pilot Vietnamese questions with gold document/unit citations.
+- A reviewed relation artifact covering every pilot question that depends on amendment, repeal, replacement, or temporal validity.
+- Sanitized portal response fixtures and a curator review checklist.
 
-### Exit criteria
+### Exit gate
 
-- Domain và document list được supervisor/team duyệt.
-- Có ít nhất 30 câu hỏi pilot với gold citation.
+- One source can be traced manually from portal page to GUID, detail response, expected hierarchy, and citation.
+- Corpus boundary is approved.
+- No unreviewed document is described as current.
+- No candidate portal relation is treated as a legal fact without relation evidence.
+- Product, data, architecture, and acceptance documents agree.
 
 ## Phase 1: Data foundation
 
 ### Deliverables
 
-- Source client.
-- Raw immutable storage.
-- Deterministic parser.
-- Hierarchy validation.
-- Neo4j import.
-- Data quality report.
+- Minimal Python project bootstrap.
+- Concrete portal client, response schema validation, raw artifact storage, HTML normalization, deterministic parser, manifest, and CLI.
+- Unit fixtures plus one opt-in live portal smoke test.
+- Data quality report for the seed catalog.
 
-### Exit criteria
+### Exit gate
 
-- Rebuild cùng input tạo hierarchy/citation IDs ổn định.
-- Parser fixtures pass.
-- 12 baseline documents được ingest.
+- Identical raw response rebuilds to identical legal unit IDs.
+- Twelve seed records ingest from structured portal responses.
+- Schema, parse, and validation failure preserve raw artifact but block promotion.
+- No query, graph, or LLM feature exists yet.
 
-## Phase 2: Retrieval baseline
-
-### Deliverables
-
-- Article/clause/point search.
-- BM25.
-- Dense embedding.
-- Retrieval-only API.
-- Recall/MRR/nDCG evaluator.
-
-### Exit criteria
-
-- Có R0 BM25 và R1 dense report.
-- Có error analysis candidate recall.
-
-## Phase 3: Hybrid GraphRAG QA
+## Phase 2: Graph and retrieval baseline
 
 ### Deliverables
 
-- RRF fusion.
-- Reranker.
-- Hierarchy/amendment expansion.
-- Validity filtering.
-- Grounded generator.
-- Citation resolver/verifier.
+- Neo4j import with constraints and snapshot tagging.
+- Exact lookup, lexical retrieval, dense retrieval, and retrieval-only API.
+- Evaluation runner for R0, R1, and R2.
 
-### Exit criteria
+### Exit gate
 
-- QA API trả answer + sources + warnings.
-- Không trả citation không resolve.
-- Có ablation R0–R5.
+- Search returns candidate IDs, snapshot, scores, and source locator.
+- Gold pilot results identify whether failures are data, parser, lexical, or dense.
+- A snapshot/index mismatch is detected by readiness checks.
+
+## Phase 3: Grounded Hybrid GraphRAG
+
+### Deliverables
+
+- RRF, optional reranker, bounded graph expansion, deterministic validity service.
+- QA service with structured generation, citation verifier, clarification, abstention, and provider fallback.
+- R3 through R5 ablations.
+
+### Exit gate
+
+- No displayed citation fails resolution or evidence membership.
+- Validity-unknown cases produce warnings rather than confident claims.
+- Generation can fail without making retrieval unavailable.
 
 ## Phase 4: Product hardening
 
 ### Deliverables
 
-- Ingestion job state/retry/checkpoint.
-- Snapshot promotion/rollback.
-- Cache.
-- Rate limit/timeout/fallback.
-- Trace/metrics/cost logging.
-- Streamlit/web UI.
+- API contract tests, internal operator endpoints, trace logs, rate limits, health/readiness, and rollback.
+- Minimal web UI that shows answer, sources, snapshot date, warnings, and disclaimer.
+- Reproducible dev, eval, and demo paths.
 
-### Exit criteria
+### Exit gate
 
-- Demo chạy từ clean environment.
-- Có fallback matrix và smoke test.
-- Có p50/p95/cost report.
+- A clean environment can run the demo against a promoted snapshot.
+- Operator can inspect a failed ingest run and roll back a promotion.
+- Latency and cost report exists.
 
-## Phase 5: Evaluation and portfolio release
+## Phase 5: Portfolio release
 
 ### Deliverables
 
-- 300–500 reviewed questions.
-- Final ablation report.
-- Error analysis.
-- Architecture diagram.
-- Demo video/screenshots.
-- README setup/troubleshooting.
-- Limitations and responsible-use statement.
+- 300–500 reviewed questions, final ablation report, manual error analysis, architecture diagram, and demo walkthrough.
+- README setup, limitations, responsible-use statement, and reproducibility instructions.
 
-### Exit criteria
+### Exit gate
 
-- Người khác clone/chạy được theo README.
-- Evaluation run tái lập được từ manifest/config.
-- Có kết luận trung thực về điểm mạnh/yếu.
+- Another developer can reproduce an evaluation run from recorded versions.
+- The demo includes direct answer, temporal case, ambiguity, abstention, and multi-document examples.
+- Claims about quality match published measurements.
 
-## Optional Phase 6: Agentic retrieval experiment
+## Optional Phase 6: Bounded agentic retrieval experiment
 
-Chỉ thực hiện nếu Phase 3/5 chứng minh các query multi-document/multi-hop còn lỗi đáng kể.
+Run only if Phase 3 error analysis proves a fixed pipeline misses meaningful multi-hop cases.
 
-Scope nhỏ:
+The experiment has a small planner with only exact lookup, hybrid search, graph traversal, and validity tools; a maximum of three retrieval rounds; a fixed budget and stop condition; and an ablation against the fixed pipeline. It does not replace the default path without a documented quality/cost win.
 
-- một planner/router;
-- tools: exact lookup, hybrid search, graph traversal, validity check;
-- tối đa 2–3 vòng retrieval;
-- budget và stop condition rõ;
-- so sánh với fixed pipeline trên cùng gold set.
+## Suggested sequence
 
-Không merge vào default nếu chưa chứng minh quality/cost trade-off.
-
-## Suggested weekly sequence
-
-```text
-Week 1: scope + source + QA guideline
-Week 2: scraper/raw/manifest
-Week 3: parser/graph/validation
-Week 4: BM25/dense retrieval
-Week 5: RRF/reranker/graph context
-Week 6: generator/citation verifier
-Week 7: evaluation/ablation
-Week 8: API/UI/observability
-Week 9: hardening/demo/reproducibility
-```
-
-## Risks by phase
-
-| Risk | Detection | Response |
-|---|---|---|
-| Parser không ổn định | Fixtures/quality report | Sửa deterministic parser, không vội dùng LLM |
-| Data thiếu quan hệ sửa đổi | Provenance review | Giảm claim validity hoặc thêm manual mapping |
-| Dense không tốt tiếng Việt | Recall comparison | Giữ BM25/hybrid, benchmark model khác |
-| Reranker làm xấu | Ablation | Tắt mặc định hoặc calibrate |
-| QA annotation tốn thời gian | Pilot review | Ưu tiên citation/validity, giảm scope |
-| Agent làm phức tạp | Cost/quality comparison | Giữ fixed pipeline |
-
-## Acceptance criteria
-
-- Mỗi phase có demo hoặc report độc lập.
-- Không chuyển phase khi exit criteria chưa đạt chỉ vì muốn thêm feature.
-- Optional agentic phase không ảnh hưởng v1 release.
+    Week 1: Phase 0 catalog, fixtures, pilot questions
+    Week 2: Phase 1 portal client, artifacts, parser
+    Week 3: Phase 1 validation and seed snapshot
+    Week 4: Phase 2 lexical and dense baseline
+    Week 5: Phase 2 evaluation and error analysis
+    Week 6: Phase 3 fusion, graph context, validity
+    Week 7: Phase 3 grounded QA and citation verifier
+    Week 8: Phase 4 API, UI, and observability
+    Week 9: Phase 5 evaluation, demo, and release materials

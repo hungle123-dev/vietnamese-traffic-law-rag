@@ -1,204 +1,195 @@
-# 03. Data and Ingestion
+# 03. Data and Ingestion Contract
 
-## Mục tiêu
+## Source contract
 
-Định nghĩa nguồn dữ liệu, schema tối thiểu và pipeline ingest có thể tái lập, kiểm tra và cập nhật.
+The primary source is the current legal-document interface of [Cổng Pháp luật quốc gia](https://phapluat.gov.vn/he-thong-van-ban-phap-luat). Its UI currently calls:
 
-## 1. Data policy
+```text
+POST /api/legal-documents
+GET  /api/legal-documents/detail?docGUId={guid}&tabName=noidung
+```
 
-Nguồn ưu tiên:
+As observed on 2026-08-12, search returns candidates at `data.docs` and its total at `data.rowCount`. Detail returns an envelope with `success`, `data`, and `tabName`; metadata and HTML are at `data.docIdentity`, `data.docName`, and `data.docContent`. This is an undocumented UI-backed API, not a stable developer contract. The client therefore uses normal HTTPS verification, bounded timeout and response size, explicit schema validation, and regression fixtures. It never disables transport verification.
 
-1. [Cơ sở dữ liệu quốc gia về pháp luật](https://vbpl.moj.gov.vn/pages/portal.aspx).
-2. [Cổng Pháp luật quốc gia](https://phapluat.gov.vn/home).
-3. [Hệ thống văn bản Chính phủ](https://vanban.chinhphu.vn/).
+## Discovery request contract
 
-Mỗi record phải lưu nguồn gốc. Không lấy bài báo hoặc blog làm căn cứ pháp lý chính; chúng chỉ có thể là nguồn câu hỏi/metadata phụ.
+The following search body was observed from the portal interface on 2026-08-12. It is a **discovery-only** contract: take candidate GUIDs from its result, then let a curator approve a catalog entry before any detail fetch.
 
-## 2. Dataset tiers
+```json
+{
+  "keywords": "",
+  "isSearchExact": 0,
+  "issueDateFrom": "",
+  "issueDateTo": "",
+  "searchByDate": null,
+  "pageIndex": 0,
+  "rowAmount": 20,
+  "searchOptions": 1,
+  "sortBy": "issueDate",
+  "sortOrder": "desc",
+  "docGroupIds": [],
+  "fieldIds": [],
+  "effectStatusIds": [],
+  "signerIds": [],
+  "organIds": [],
+  "docTypeIds": [],
+  "provinceIds": [],
+  "wardIds": [],
+  "languageId": 1,
+  "qtdcListFilter": "all",
+  "qtdcListScope": "all"
+}
+```
 
-| Tier | Corpus | QA/evaluation | Mục đích |
-|---|---:|---:|---|
-| Baseline | 12 văn bản traffic tham khảo, khoảng 7.500 node cấu trúc | 300 câu hỏi | Tái hiện và kiểm tra pipeline nền |
-| Đồ án v1 | 15–30 document/version records, gồm luật, nghị định xử phạt và văn bản hướng dẫn liên quan | 300–500 câu hỏi, citation-level | Sản phẩm hoàn chỉnh có evaluation |
-| Scale-up | Mở rộng các văn bản giao thông liên quan và lịch sử sửa đổi | 1.000+ câu hỏi hoặc active learning | Benchmark/stress test, chỉ làm khi v1 ổn định |
+Do not use legacy `dateFrom` or `dateTo` keys. A saved search fixture must assert the `data.docs` and `data.rowCount` wrapper plus the candidate fields needed to capture `docGUId`, document identity, and title. Any mismatch is `PORTAL_SCHEMA_CHANGED`, not a reason to guess a replacement schema.
 
-Các con số là mục tiêu engineering. Corpus phải được đóng băng trong `data_manifest.json`; không dùng “latest crawl” làm benchmark cố định.
+## Curated catalog, not bulk discovery
 
-## 3. Raw document record
+Portal search is used only to discover candidates. A curator selects a narrow traffic corpus and commits a versioned catalog with the exact portal GUID for every approved source.
+
+| Tier | Records | Purpose |
+|---|---:|---|
+| Pilot | 12 source records | Validate portal client, parser, and question taxonomy |
+| v1 | 15–30 document/version records | Product corpus with meaningful evaluation |
+| Expansion | Only after error analysis | Fill demonstrated evidence gaps |
+
+The catalog stores both the expected project document ID and the portal-specific GUID. Ingestion never re-finds a source by title.
+
+```yaml
+snapshot_id: traffic-YYYY-MM-DD-v1
+sources:
+  - document_guid: "portal-guid"
+    expected_document_id: "36/2024/QH15"
+    expected_title: "Luật Trật tự, an toàn giao thông đường bộ"
+    expected_public_url: "https://phapluat.gov.vn/<verified-public-document-page>"
+    include: true
+    review_status: approved
+    curator_note: "Core road-safety law"
+```
+
+`blocked_no_structured_content` is a valid catalog status. Blocked entries cannot enter parsing, indexing, or evaluation.
+
+## Fetch contract
+
+For each approved catalog entry, the pipeline:
+
+1. fetches detail by stored GUID with `tabName=noidung`;
+2. stores exact bounded response bytes as content-addressed raw JSON in quarantine;
+3. validates `success == true` and non-empty `data.docIdentity`, `data.docName`, and `data.docContent`, then requires `data.docIdentity` to equal the catalog's `expected_document_id`;
+4. maps portal fields to canonical metadata;
+5. converts `docContent` HTML to normalized text;
+6. parses and validates legal hierarchy.
+
+Canonical metadata:
 
 ```json
 {
   "document_id": "36/2024/QH15",
-  "title": "Luật Trật tự, an toàn giao thông đường bộ",
-  "document_type": "law",
-  "issuer": "Quốc hội",
-  "issued_date": "2024-06-27",
-  "effective_from": "2025-01-01",
-  "effective_to": null,
-  "status": "current",
-  "source_url": "https://...",
-  "retrieved_at": "2026-08-12T00:00:00Z",
+  "portal_document_guid": "...",
+  "title": "...",
+  "document_type": "law|decree|circular|decision|other",
+  "issuer": "...",
+  "issued_date": "YYYY-MM-DD|null",
+  "effective_from": "YYYY-MM-DD|null",
+  "effective_to": "YYYY-MM-DD|null",
+  "status": "current|repealed|amended|unknown",
+  "source_url": "https://phapluat.gov.vn/<verified-public-document-page>",
+  "content_url": "https://phapluat.gov.vn/api/legal-documents/detail?...",
+  "retrieved_at": "ISO-8601 UTC",
   "content_sha256": "...",
-  "snapshot_id": "traffic-2026-08-12-v1"
+  "snapshot_id": "traffic-YYYY-MM-DD-v1"
 }
 ```
 
-`status` không được suy ra chỉ từ `issued_date`; phải dùng thông tin hiệu lực, bãi bỏ, thay thế và review.
+`status` is a source signal, not a legal inference. Curator review is required before promoting critical validity mappings.
 
-## 4. Legal unit record
+A title mismatch after whitespace normalization is held for curator review; it is never promoted automatically. A GUID may identify one document only when both the exact document identity check and catalog approval pass. `source_url` is the catalog's manually verified public page, not a URL pattern inferred from an undocumented API.
+
+## Artifact model
+
+```text
+raw/{sha256}.json
+normalized/{sha256}.txt
+parsed/{document_id}__{snapshot_id}.json
+relations/{snapshot_id}.json
+manifests/{snapshot_id}.json
+reports/{run_id}.json
+```
+
+- Raw bytes are immutable and deduplicated by SHA-256.
+- Normalized text is reproducible from raw JSON and a normalizer version.
+- Parsed documents store parser version and stable unit IDs.
+- A manifest contains only validated parsed artifacts; a raw fetch alone is not corpus membership.
+- Schema-invalid raw responses remain quarantined for drift diagnosis and are never exposed as search or QA evidence.
+- Quarantine is a run/manifest classification of the one immutable raw artifact, not a second copy of its bytes.
+- Logical `document_id` and `unit_id` stay stable across refreshes; a graph import scopes their physical records by `snapshot_id`.
+
+## Curated relation artifact
+
+Cross-document legal relations are a separate reviewed dataset, analogous to the parsed-document artifacts. Portal fields such as `data.docRelateEffects` and `data.docListRelates` may nominate candidates, but neither field creates a public graph edge by itself.
 
 ```json
 {
-  "unit_id": "36/2024/QH15::article::11::clause::2",
-  "document_id": "36/2024/QH15",
-  "unit_type": "clause",
-  "number": "2",
-  "parent_id": "36/2024/QH15::article::11",
-  "text": "...",
-  "path": [
-    "36/2024/QH15",
-    "36/2024/QH15::article::11",
-    "36/2024/QH15::article::11::clause::2"
-  ],
-  "validity": "current",
-  "source_locator": {"page": null, "html_anchor": "..."},
-  "parser_version": "parser-1"
+  "snapshot_id": "traffic-YYYY-MM-DD-v1",
+  "relations": [
+    {
+      "relation_id": "traffic-...::amends::001",
+      "relation_type": "AMENDS",
+      "source": {
+        "document_id": "168/2024/NĐ-CP",
+        "unit_id": "168/2024/NĐ-CP::article::52::clause::1"
+      },
+      "target": {
+        "document_id": "100/2019/NĐ-CP",
+        "unit_id": "100/2019/NĐ-CP::article::1::clause::2a"
+      },
+      "effective_from": "2025-01-01",
+      "effective_to": null,
+      "evidence_unit_id": "168/2024/NĐ-CP::article::52::clause::1",
+      "source_url": "https://phapluat.gov.vn/<verified-public-document-page>",
+      "raw_sha256": "...",
+      "review_status": "approved",
+      "reviewed_at": "YYYY-MM-DD",
+      "note": null
+    }
+  ]
 }
 ```
 
-## 5. Ingestion states
+Allowed `relation_type` values are `AMENDS`, `REPEALS`, `REPLACES`, and `REFERENCES`. `source.unit_id` and `target.unit_id` may be null only for a document-level relation; `evidence_unit_id`, `source_url`, and `raw_sha256` are required for every approved relation. The importer accepts only `approved` records whose referenced documents and units resolve inside the draft snapshot.
+
+## Normalization and hierarchy
+
+Normalization applies Unicode NFC, non-breaking-space cleanup, and deterministic block breaks. It preserves legal numbering, dates, and text; it never paraphrases.
+
+The parser recognizes `Phần`, `Chương`, `Mục`, `Điều`, `Khoản`, and `Điểm`. Unit IDs follow this pattern:
 
 ```text
-discovered → fetched → hashed → parsed → normalized
-→ relations_resolved → validated → embedded → indexed
-→ smoke_tested → promoted
+36/2024/QH15::article::11::clause::2::point::a
 ```
 
-Lỗi ở bất kỳ state nào chuyển record/job sang `failed` với error code, retry count và artifact liên quan. Không xóa raw artifact khi parse lỗi.
+Validation rejects empty units, duplicate IDs, missing parents, and malformed paths. The parser never uses an LLM to fill missing legal structure.
 
-## 6. Pipeline details
-
-### 6.1 Discovery and fetch
-
-- Lưu query/source URL và thời điểm discovery.
-- Có timeout, retry exponential có giới hạn và user-agent hợp lệ.
-- Kiểm tra content type, kích thước và encoding.
-- Không vượt rate limit của nguồn.
-- Gắn checksum sau khi tải.
-
-Phase 1B supports a direct official text-PDF URL. `source_url` remains the public document page used for citations; `content_url` records the downloaded PDF. Discovery stays manual in a versioned corpus catalog until the national legal portal exposes a stable documented interface.
-
-If PDF text extraction fails, the raw PDF is still hashed and retained, but no parsed document or manifest record is created. The run fails explicitly so image-only sources cannot silently enter retrieval; they require OCR or a verified structured-text source.
-
-### 6.2 Normalization
-
-- Chuẩn hóa Unicode và whitespace.
-- Giữ nguyên số hiệu, ngày tháng, ký hiệu điều/khoản/điểm.
-- Loại bỏ boilerplate HTML nhưng giữ anchor/locator.
-- Không paraphrase nội dung pháp luật trong raw/normalized source.
-
-### 6.3 Hierarchy parsing
-
-Parser ưu tiên deterministic rules/regex dựa trên cấu trúc văn bản. LLM không được dùng để quyết định số điều hoặc hierarchy trong đường ingest chính.
-
-Validation tối thiểu:
-
-- article number không trùng bất thường trong cùng document;
-- parent path tồn tại;
-- clause/point nằm trong đúng article/clause;
-- text không rỗng;
-- số lượng node và relation có report;
-- lưu parser version.
-
-### 6.4 Amendment/repeal resolution
-
-Mỗi relation phải có:
+## State machine
 
 ```text
-relation_type
-source_document_id
-target_document_id/unit_id
-effective_from
-provenance_url
-confidence
-review_status
+catalogued → fetched → raw_stored → normalized → parsed → validated
+→ manifested → embedded → indexed → smoke_tested → promoted
 ```
 
-Các quan hệ chưa xác minh dùng `unknown`/`candidate`, không được dùng để tự động loại bỏ văn bản current.
+Failures record an error code, timestamp, and raw artifact when available. No partial snapshot can be promoted.
 
-### 6.5 Embedding and indexing
+## Data quality report
 
-- Batch embedding, retry theo batch.
-- Embedding input gồm text pháp lý và metadata cần thiết, nhưng citation ID phải lưu riêng.
-- Index phải ghi model name, dimension, normalization và snapshot ID.
-- Build index mới ngoài active index.
-- Chạy sample queries trước khi promote.
+Every run reports catalog counts, fetch and schema failures, document/article/clause/point counts, orphan or duplicate units, `unknown` validity count, relation review status, manifest hash, and parser/normalizer/schema versions.
 
-## 7. Data quality report
+## Non-structured content policy
 
-Mỗi ingest run phải xuất:
+The v1 ingestion contract accepts only complete readable structured HTML from the source. A response that does not satisfy this contract is blocked and reported; it is never converted into weaker evidence silently.
 
-- số document discovered/fetched/failed;
-- số article/clause/point;
-- số node mồ côi;
-- số text rỗng/trùng hash;
-- số relation theo type;
-- số record validity unknown;
-- embedding/index failure;
-- parser warnings;
-- snapshot ID và manifest hash.
+## Acceptance gates
 
-## 8. QA data collection
-
-Nguồn câu hỏi:
-
-- câu hỏi do người dùng/nhóm tự viết theo taxonomy;
-- câu hỏi biến thể paraphrase có review;
-- câu hỏi tham khảo từ consultation platform chỉ khi có quyền sử dụng và được kiểm tra lại;
-- hard negatives: câu hỏi gần nghĩa nhưng khác phương tiện, hành vi, thời điểm hoặc văn bản.
-
-Mỗi sample cần:
-
-```json
-{
-  "question_id": "traffic-0001",
-  "question": "...",
-  "gold_unit_ids": ["..."],
-  "gold_document_ids": ["..."],
-  "answer": "...",
-  "effective_at": "2026-08-12",
-  "question_type": "penalty",
-  "difficulty": "multi_document",
-  "review_status": "reviewed"
-}
-```
-
-## 9. Data leakage policy
-
-- Không chia random các paraphrase cùng một câu hỏi sang train/test.
-- Nếu dùng document version cũ/mới, phải đánh dấu quan hệ để không làm lộ answer qua duplicate text.
-- Evaluation question không được sinh từ answer rồi đưa nguyên answer vào prompt/index như metadata.
-- Report phải ghi rõ nguồn và thời điểm tạo QA.
-
-## 10. Assumptions
-
-- Phần lớn document là HTML/text; OCR PDF chỉ là fallback.
-- Một số quan hệ sửa đổi cần human review.
-- `effective_at` có thể null nếu câu hỏi chỉ hỏi lý thuyết; khi đó phải hiển thị snapshot date.
-
-## 11. Failure modes
-
-- Nguồn đổi HTML khiến scraper vẫn chạy nhưng parse sai.
-- Văn bản hợp nhất che mất lịch sử version.
-- Duplicate document được ingest thành hai node.
-- Relation extraction tạo false positive.
-- Embedding batch lỗi một phần nhưng index báo thành công.
-
-## 12. Acceptance criteria
-
-- Một run ingest mới có thể resume sau khi dừng giữa chừng.
-- Raw artifact có hash và source URL.
-- Parsed hierarchy pass validation fixtures.
-- Index active trỏ duy nhất tới một snapshot đã smoke-test.
-- Có thể rollback về index snapshot trước.
-- Mọi relation amendment/repeal tự động đều có provenance và review status.
+- One saved portal fixture passes schema, normalization, and parser tests.
+- Rebuilding from identical raw bytes yields identical hash and unit IDs.
+- Every promoted document has public URL, raw hash, portal GUID, and curator status.
+- A portal contract change fails before parsing and promotion.

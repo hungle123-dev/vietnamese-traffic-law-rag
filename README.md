@@ -1,72 +1,24 @@
 # Vietnamese Traffic Law Hybrid GraphRAG
 
-Project AI Engineer xây dựng hệ thống hỏi đáp pháp luật giao thông đường bộ Việt Nam.
+Blueprint cho một sản phẩm tra cứu và hỏi đáp pháp luật giao thông đường bộ Việt Nam có căn cứ pháp lý.
 
-## Current milestone: ingestion vertical slice (Phase 1A)
+## Trạng thái
 
-Phase 1 chỉ triển khai vertical slice:
+Repository hiện là **documentation-only**. Không có source code, test, dependency lockfile, data corpus hay cấu hình runtime. Mọi quyết định cần thiết trước giai đoạn code được đóng băng trong [`docs/`](docs/README.md).
 
-```text
-local source document
-→ immutable raw storage
-→ deterministic hierarchy parser
-→ manifest + parsed JSON
-→ parser/pipeline tests
-```
+## Product đã chốt
 
-Chưa có retrieval, LLM generation, UI hoặc Agentic RAG. Phase 1B có thể tải và ingest PDF text từ nguồn chính thức.
+- **Domain:** pháp luật giao thông đường bộ Việt Nam.
+- **Product:** trợ lý tra cứu pháp lý có citation Điều/Khoản/Điểm, nhận biết hiệu lực theo data snapshot.
+- **Data path:** Cổng Pháp luật quốc gia API/HTML → raw response bất biến → hierarchy parser → graph/index → hybrid retrieval → cited answer.
+- **Không thuộc v1:** chatbot tổng quát, toàn bộ pháp luật Việt Nam, xử lý tài liệu không có HTML cấu trúc, agent loop tự trị và fine-tuning trước benchmark.
 
-## Setup
+## Đọc trước khi viết code
 
-```powershell
-uv sync --extra dev
-```
+1. [Product brief](docs/00-product-brief.md)
+2. [Scope and requirements](docs/01-scope-and-requirements.md)
+3. [System architecture and planned source layout](docs/02-system-architecture.md)
+4. [Data and ingestion contract](docs/03-data-and-ingestion.md)
+5. [Implementation blueprint](docs/14-implementation-blueprint.md)
 
-## Quality checks
-
-```powershell
-uv run ruff check src tests
-uv run ruff format --check src tests
-uv run mypy src
-uv run pytest -q
-```
-
-## Ingest a document
-
-```powershell
-uv run traffic-legal ingest `
-  --source tests/fixtures/traffic_sample.txt `
-  --document-id 36/2024/QH15 `
-  --title "Luật Trật tự, an toàn giao thông đường bộ" `
-  --issuer "Quốc hội" `
-  --source-url https://vbpl.moj.gov.vn/ `
-  --snapshot-id traffic-dev-v1
-```
-
-## Ingest an official PDF
-
-`source_url` là trang công bố để hiển thị citation; `content_url` là PDF được tải, hash và lưu immutable.
-
-```powershell
-uv run traffic-legal fetch-pdf `
-  --document-id "36/2024/QH15" `
-  --title "Luật Trật tự, an toàn giao thông đường bộ" `
-  --document-type law `
-  --issuer "Quốc hội" `
-  --issued-date 2024-06-27 `
-  --effective-from 2025-01-01 `
-  --status current `
-  --source-url "https://vanban.chinhphu.vn/?classid=1&docid=211194&pageid=27160" `
-  --content-url "https://datafiles.chinhphu.vn/cpp/files/vbpq/2024/9/36-2024-qh15.pdf" `
-  --snapshot-id "traffic-2026-08-12-v1"
-```
-
-The command writes ignored local artifacts under `data/`:
-
-- `data/raw/`: content-addressed raw text;
-- `data/parsed/`: parsed legal units;
-- `data/manifests/manifest.json`: document metadata and lineage.
-
-## Documentation
-
-Start with [docs/README.md](docs/README.md), then read the product brief and ingestion design before changing behavior. Agent-specific rules are in [AGENTS.md](AGENTS.md).
+Chỉ bắt đầu Phase 1 khi các điều kiện trong [acceptance criteria](docs/13-acceptance-criteria.md) và Phase 0 của [roadmap](docs/12-roadmap.md) được đáp ứng.

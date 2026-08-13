@@ -1,163 +1,90 @@
 # 09. Security and Observability
 
-## Mục tiêu
+## Threat model
 
-Bảo vệ hệ thống khỏi prompt injection, data poisoning, abuse và lỗi khó quan sát; đồng thời đo được chất lượng, latency và chi phí.
+| Threat | Impact | Required control |
+|---|---|---|
+| Prompt injection in query or legal text | Model ignores policy | Separate instruction from data; selected evidence only; output validation |
+| Citation fabrication | Legal claim cannot be audited | Server-side resolver and evidence-membership check |
+| Source poisoning or portal drift | Incorrect corpus artifact | Reviewed catalog, raw hash, schema fixture, promotion gate |
+| Arbitrary graph access | Data exposure or denial of service | No public Cypher or model-controlled graph tools |
+| Excessive requests | Cost and latency | Body, rate, concurrency, and timeout limits |
+| Secret or personal-data leakage | Privacy and credential risk | Environment-only secrets, redacted structured logs |
+| Stale snapshot | Outdated answer | Snapshot ID and age in every trace |
+| Provider outage | Broken user experience | Timeout and safe retrieval-only fallback |
 
-## 1. Threat model
+## Data integrity
 
-| Threat | Vector | Impact | Control |
-|---|---|---|---|
-| Prompt injection | User/document text | LLM bỏ policy, leak prompt | Tách instruction/data, output validation, allowlist |
-| Citation injection | Document chứa fake marker | Citation giả | Server-generated IDs, resolver |
-| Data poisoning | Raw source/parser relation sai | Trả luật sai | Official source, hash, review, promotion gate |
-| Query injection | Text-to-Cypher/arbitrary filter | Data access/DoS | Không expose, read-only allowlist, limits |
-| Denial of service | Query dài, repeated LLM calls | Tốn cost/latency | Body/rate/concurrency limits, cache |
-| Secret leakage | Logs/prompts/errors | Credential compromise | Secret manager/env, redaction |
-| Stale index | Data cập nhật nhưng index cũ | Answer outdated | Snapshot/version check, freshness metric |
-| Model/provider outage | External dependency | Không trả answer | Timeout, retry, fallback search/abstain |
-| PII exposure | User includes personal data | Privacy risk | Minimize storage, redact logs, retention policy |
+- The raw portal response is immutable and SHA-256 addressed.
+- A manifest includes only validated parsed content.
+- Parser, normalizer, schema, catalog, and snapshot versions are recorded.
+- Cross-document legal relations require provenance and review.
+- Index build occurs outside the public request path.
+- Promotion is atomic; the previous promoted snapshot remains rollbackable.
 
-## 2. Prompt injection controls
+## Prompt safety
 
-- User query, conversation và legal text phải là data fields, không concatenate thành system instruction.
-- Giới hạn độ dài và loại control characters.
-- Không cho document content thực thi tool call.
-- LLM tools chỉ read-only và allowlist.
-- Validator kiểm tra output schema, citation membership và forbidden content.
-- Có test cases “ignore previous instructions”, fake citation và malicious legal text.
+- Legal text, user questions, and conversation are treated as untrusted data.
+- The model cannot invoke source fetch, graph write, or shell-like tools.
+- Citation IDs are injected by the system and checked after generation.
+- Include regression fixtures for malicious instructions, fake citations, malformed JSON, and ambiguous questions.
 
-## 3. Data integrity controls
+## Trace record
 
-- Raw content checksum.
-- Immutable snapshot artifact.
-- Parser version và relation provenance.
-- Manual review cho amendment/repeal critical edges.
-- Index promotion chỉ sau smoke tests.
-- Không sửa trực tiếp active index; build/promote/rollback.
+Every QA request logs structured fields:
 
-## 4. Observability events
+    trace_id
+    request_id
+    timestamp
+    query_hash
+    snapshot_id
+    index_version
+    retrieval_config
+    prompt_version
+    model_name
+    answer_mode
+    abstain
+    status
 
-### Request event
+Stage timings:
 
-```text
-trace_id
-request_id
-timestamp
-client_class
-query_hash
-input_length
-snapshot_id
-index_version
-retrieval_config
-prompt_version
-model_name
-status
-abstain
-```
+    validation_ms
+    exact_lookup_ms
+    lexical_ms
+    dense_ms
+    fusion_ms
+    rerank_ms
+    graph_ms
+    generation_ms
+    citation_verify_ms
+    total_ms
 
-### Stage timings
+Raw questions and answers are not logged by default. Debug capture requires an explicit switch, redaction, and short retention.
 
-```text
-validation_ms
-rewrite_ms
-filter_ms
-lexical_ms
-dense_ms
-fusion_ms
-rerank_ms
-graph_ms
-generation_ms
-citation_verify_ms
-total_ms
-```
+## Metrics
 
-Không log raw question/answer mặc định. Debug mode phải explicit và redaction.
-
-## 5. Metrics
-
-### Product/quality
-
-- questions per day;
-- abstention rate;
 - citation validation failure rate;
-- user feedback/flag rate;
-- answer acceptance nếu có feedback.
-
-### Retrieval
-
-- candidate count;
-- retriever agreement;
-- top score/margin;
-- Recall@k từ evaluation runs;
-- reranker fallback rate.
-
-### Reliability
-
-- API error rate;
-- timeout rate;
-- dependency health;
-- ingestion failure rate;
+- abstention and clarification rate;
+- source schema failure rate;
+- parser validation failure rate;
 - active snapshot age;
-- index promotion/rollback count.
+- retrieval candidate count and retriever agreement;
+- p50/p95 timings and dependency errors;
+- token usage and estimated cost;
+- ingestion run status and promotion/rollback count.
 
-### Cost
+## Safe degradation
 
-- input/output tokens;
-- estimated cost/request;
-- embedding batch cost/time;
-- cache hit rate;
-- cost by endpoint/model.
-
-## 6. Alerts
-
-Alert tối thiểu:
-
-- active snapshot quá cũ so với update policy;
-- citation validation failure tăng đột biến;
-- p95 latency vượt target;
-- LLM timeout/rate limit;
-- ingest/parser failure;
-- cost/request vượt budget;
-- index readiness false.
-
-## 7. Logging and retention
-
-- Structured JSON logs.
-- Secret/token được redact.
-- Raw legal document retention theo data policy; QA/evaluation có version.
-- Query log dùng hash nếu không cần lưu nội dung.
-- Xóa/ẩn PII trong câu hỏi khi phát hiện.
-
-## 8. Fallback behavior
-
-| Failure | Fallback |
+| Failure | Response |
 |---|---|
-| LLM down | Trả retrieved sources + thông báo không sinh được answer |
-| Reranker down | Dùng RRF/fused ranking |
-| Dense index down | BM25 + graph exact lookup |
-| BM25 down | Dense + graph, warning |
-| Cache down | Bỏ qua cache, tiếp tục request |
-| Graph down | Search text nhưng không claim validity/relationship đầy đủ |
-| Citation validator down | Không trả generated answer; trả safe error hoặc sources |
+| LLM unavailable | Return selected sources with generation warning |
+| Reranker unavailable | Use fused ranking |
+| Dense retrieval unavailable | Use lexical and exact lookup with warning |
+| Lexical retrieval unavailable | Use dense with warning |
+| Graph unavailable | Do not generate validity or relation claims |
+| Citation verifier unavailable | Do not return generated legal claims |
+| Portal unavailable during ingest | Fail or retry the run; do not alter active snapshot |
 
-## 9. Assumptions
+## v1 boundary
 
-- Local demo có thể dùng log file; deployment thật nên đưa metrics vào Prometheus-compatible system.
-- Không cần full SIEM/Kubernetes observability ở v1.
-- Security của legal truth quan trọng hơn việc thêm tool agent.
-
-## 10. Failure modes
-
-- Logging debug vô tình lưu PII.
-- Metrics không gắn snapshot nên không phân biệt lỗi data/model.
-- Fallback trả answer cũ từ cache sau khi index đổi.
-- Alert quá nhiều khiến operator bỏ qua cảnh báo quan trọng.
-
-## 11. Acceptance criteria
-
-- Mỗi request có trace ID và stage timings.
-- Có thể truy nguyên answer về snapshot/index/model/prompt.
-- Có rate limit và body limit.
-- Có kiểm thử prompt injection và malformed output.
-- Có fallback documented cho từng dependency chính.
+Local structured logs and a metrics export are enough initially. Full SIEM, distributed tracing infrastructure, and a complex security platform are not required before a working snapshot and public API exist.

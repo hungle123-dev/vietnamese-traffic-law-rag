@@ -1,221 +1,120 @@
 # 11. Architecture Decision Records
 
-## Mục tiêu
-
-Ghi lại các quyết định có ảnh hưởng lớn để tránh thay đổi stack theo cảm tính và giúp reviewer hiểu trade-off.
+This document records the v1 decisions and their revisit triggers. A decision is not permanent; it changes only with documented evidence.
 
 ## ADR summary
 
 | ID | Decision | Status |
 |---|---|---|
-| ADR-001 | Giới hạn domain ở pháp luật giao thông đường bộ Việt Nam | Accepted |
-| ADR-002 | Legal unit có cấu trúc là retrieval/citation unit | Accepted |
-| ADR-003 | Neo4j là graph và index store ban đầu | Accepted |
-| ADR-004 | Hybrid BM25 + dense, fusion bằng RRF | Accepted |
-| ADR-005 | Reranker là stage có benchmark/fallback, không bắt buộc mọi request | Accepted |
-| ADR-006 | Validity là deterministic metadata/graph logic | Accepted |
-| ADR-007 | Ingestion offline, snapshot và index promotion | Accepted |
-| ADR-008 | Không dùng Agentic RAG mặc định | Accepted |
-| ADR-009 | LLM generation có structured output và citation verifier | Accepted |
-| ADR-010 | Evaluation lấy retrieval/citation làm metric chính | Accepted |
+| ADR-001 | Restrict domain to Vietnamese road traffic | Accepted |
+| ADR-002 | Use structured legal units as canonical evidence | Accepted |
+| ADR-003 | Use the National Legal Portal structured HTML contract | Accepted |
+| ADR-004 | Use a curated GUID catalog and versioned snapshots | Accepted |
+| ADR-005 | Start with Neo4j for graph, lexical, and vector indexes | Accepted |
+| ADR-006 | Use hybrid lexical plus dense retrieval with RRF | Accepted |
+| ADR-007 | Make validity deterministic metadata and graph logic | Accepted |
+| ADR-008 | Use fixed retrieval orchestration, not default agents | Accepted |
+| ADR-009 | Verify structured citations after generation | Accepted |
+| ADR-010 | Measure retrieval and citation before answer fluency | Accepted |
 
-## ADR-001: Domain boundary
+## ADR-001: Narrow traffic domain
 
-### Context
+**Context:** Vietnamese law is too broad for a small team to curate, evaluate, and demonstrate safely.
 
-Pháp luật Việt Nam quá rộng, trong khi project cần một sản phẩm có dữ liệu và evaluation đủ sâu.
+**Decision:** Include only curator-approved road-traffic sources in one active snapshot.
 
-### Decision
+**Trade-off:** Less breadth, but meaningful citation, validity, and evaluation coverage.
 
-Chỉ xử lý pháp luật giao thông đường bộ Việt Nam trong data manifest. Câu hỏi ngoài domain được reject hoặc chuyển clarification.
+**Revisit:** The traffic corpus meets quality targets and another domain has its own reviewed corpus and gold questions.
 
-### Trade-off
+## ADR-002: Structured units over blind chunks
 
-Mất độ rộng nhưng có thể xây parser, version model, QA taxonomy và benchmark có ý nghĩa.
+**Context:** Token chunks can separate conditions, exceptions, and citation boundaries.
 
-### Revisit when
+**Decision:** Part, Chapter, Section, Article, Clause, and Point are canonical units. A bounded text window may be added later, but cannot replace unit identity.
 
-Traffic domain đạt quality/coverage và có nguồn lực annotation cho domain mới.
+**Trade-off:** Deterministic parsing needs fixtures and validation.
 
-## ADR-002: Structured legal unit
+**Revisit:** Gold evaluation shows a clear retrieval limitation caused by unit granularity.
 
-### Context
+## ADR-003: Structured portal response
 
-Chunk theo token có thể tách mất điều kiện, ngoại lệ và citation boundary.
+**Context:** The portal interface exposes document metadata and full HTML content through its active web JSON endpoints.
 
-### Decision
+**Decision:** Ingest only complete readable structured HTML after schema validation. Use normal HTTPS verification and a small, concrete client.
 
-Article/clause/point là evidence unit; parent context chỉ được thêm có giới hạn.
+**Trade-off:** The interface is UI-backed and may change.
 
-### Trade-off
+**Mitigation:** Store raw responses, pin reviewed GUIDs, keep fixtures, smoke-test schema, and fail safely on drift.
 
-Parser phức tạp hơn, nhưng citation và hierarchy rõ hơn.
+**Revisit:** The portal publishes a stable public API or the contract becomes unsuitable for the curated corpus.
 
-### Revisit when
+## ADR-004: Curated GUID catalog and snapshots
 
-Đánh giá cho thấy unit quá dài/nhỏ; khi đó thêm secondary window/chunk nhưng giữ canonical unit.
+**Context:** Portal search result count is large and search order/title matching are not stable corpus selection mechanisms.
 
-## ADR-003: Neo4j initially
+**Decision:** Catalog stores reviewed GUID, expected document ID, approval state, and snapshot version. Build a draft snapshot, validate it, then promote it.
 
-### Context
+**Trade-off:** Human curation takes time.
 
-Graph hierarchy/amendment là điểm khác biệt của product; tách nhiều database ngay làm tăng vận hành.
+**Revisit:** A stable official classification and relation source can safely automate a narrow part of curation.
 
-### Decision
+## ADR-005: Neo4j first
 
-Dùng Neo4j cho graph, metadata, full-text/vector trong v1; thiết kế index layer có thể thay adapter sau này.
+**Context:** Hierarchy and legal relations are central, while v1 corpus and traffic are small.
 
-### Alternatives
+**Decision:** Use Neo4j as the initial graph plus lexical/vector index store.
 
-Qdrant + OpenSearch + Neo4j; PostgreSQL + pgvector; Elasticsearch duy nhất.
+**Trade-off:** It may not be the fastest specialized engine at larger scale.
 
-### Trade-off
+**Revisit:** Same-gold-set benchmarks show a measurable latency or quality limitation.
 
-Ít service và dễ đồng bộ snapshot; có thể kém hơn specialized stores khi corpus/throughput lớn.
+## ADR-006: Hybrid retrieval with RRF
 
-### Revisit when
+**Context:** Lexical search is strong for legal identifiers; dense search is strong for paraphrases.
 
-Load test hoặc corpus thực tế cho thấy p95/throughput không đạt.
+**Decision:** Run both and fuse with RRF before optional reranking.
 
-## ADR-004: Hybrid retrieval + RRF
+**Trade-off:** Two retrieval calls and additional evaluation work.
 
-### Context
+**Revisit:** Sufficient held-out data supports a better calibrated fusion method.
 
-BM25 mạnh ở số hiệu/thuật ngữ; dense mạnh ở paraphrase. Raw scores khác scale.
+## ADR-007: Deterministic validity
 
-### Decision
+**Context:** Recency guesses and LLM judgments are unreliable for legal effect.
 
-Chạy lexical và dense độc lập, hợp nhất bằng RRF, sau đó mới rerank.
+**Decision:** Validity comes from source metadata and reviewed graph relations. Unknown is an explicit public outcome.
 
-### Trade-off
+**Trade-off:** Curation is necessary.
 
-Tốn hai search nhưng dễ giải thích và ablate; RRF không học trọng số domain.
+**Revisit:** A trusted structured source provides enough provenance to automate specific relations.
 
-### Revisit when
+## ADR-008: No default agentic retrieval
 
-Gold set đủ lớn để train/calibrate learning-to-rank hoặc weighted fusion.
+**Context:** The core path is known: lookup, hybrid retrieval, bounded expansion, citation verification.
 
-## ADR-005: Selective reranking
+**Decision:** Use a fixed orchestrated pipeline. An agent experiment is separate and must beat the fixed path on the same gold set under a bounded tool budget.
 
-### Context
+**Trade-off:** Less agentic marketing language.
 
-Reranker tốn latency và chỉ sắp xếp candidate đã có.
+**Revisit:** Error analysis shows persistent multi-hop failures the fixed path cannot resolve.
 
-### Decision
+## ADR-009: Structured output and citation verifier
 
-Rerank top candidate pool có giới hạn; fallback về fused rank khi model lỗi; benchmark tác động chất lượng.
+**Context:** Fluent generated text can contain fabricated citations or unsupported detail.
 
-### Trade-off
+**Decision:** Generate structured claims and resolve citations deterministically before response.
 
-Có thể tăng precision nhưng tăng cost/latency và đôi khi làm xấu kết quả.
+**Trade-off:** Small latency and implementation cost.
 
-### Revisit when
+**Revisit:** Never remove deterministic resolver; only improve its support assessment.
 
-Error analysis chứng minh reranker domain-specific đáng fine-tune.
+## ADR-010: Retrieval and citation-first evaluation
 
-## ADR-006: Deterministic validity
+**Context:** Answer-style metrics can conceal evidence failures.
 
-### Context
+**Decision:** Treat recall, citation support, validity, abstention, and reproducibility as primary. Text similarity and model judging are secondary.
 
-LLM/recency heuristic dễ sử dụng văn bản đã hết hiệu lực.
+**Trade-off:** Requires reviewed questions and manual analysis.
 
-### Decision
-
-Hiệu lực được quyết định từ metadata, effective dates và reviewed relations; `unknown` là trạng thái hợp lệ.
-
-### Trade-off
-
-Cần data curation/review, nhưng giảm hallucinated legal status.
-
-### Revisit when
-
-Có nguồn official structured validity đáng tin để tự động hóa thêm.
-
-## ADR-007: Offline ingestion and snapshots
-
-### Context
-
-Fetch/parse/embed trong request path gây latency, lỗi khó rollback và không tái lập.
-
-### Decision
-
-Ingestion offline/resumable; raw immutable; build snapshot/index mới; smoke-test rồi promote.
-
-### Trade-off
-
-Dữ liệu không real-time từng giây, nhưng an toàn và debug được.
-
-### Revisit when
-
-Có yêu cầu freshness cao và nguồn có API/event ổn định.
-
-## ADR-008: No default Agentic RAG
-
-### Context
-
-Pipeline traffic QA chủ yếu là retrieval có cấu trúc; agent loop có thể tăng cost và khó đánh giá.
-
-### Decision
-
-v1 dùng orchestrated fixed pipeline: rewrite → retrieve → rerank → graph → generate → verify. Chỉ thử agentic retrieval trong một experiment có benchmark riêng.
-
-### Trade-off
-
-Ít “agentic” hơn về marketing, nhưng deterministic và phù hợp use case.
-
-### Revisit when
-
-Câu hỏi multi-hop/multi-source có failure rate cao và agent có tool/điều kiện dừng rõ ràng.
-
-## ADR-009: Structured generation and verifier
-
-### Context
-
-LLM output không đáng tin tuyệt đối, nhất là citation và validity.
-
-### Decision
-
-LLM trả claims + unit IDs theo schema; server resolve, check evidence membership và validity trước khi trả.
-
-### Trade-off
-
-Thêm code/latency nhỏ, đổi lại có safety boundary rõ.
-
-### Revisit when
-
-Có citation verifier model tốt hơn nhưng vẫn phải giữ resolver deterministic.
-
-## ADR-010: Retrieval/citation-first evaluation
-
-### Context
-
-Answer fluency có thể che lỗi retrieval/citation.
-
-### Decision
-
-Report Recall/MRR/nDCG, citation precision/recall, validity accuracy, unsupported claim rate và latency; LLM judge chỉ secondary.
-
-### Trade-off
-
-Cần annotation thủ công, nhưng kết quả actionable hơn một điểm accuracy.
-
-### Revisit when
-
-Có benchmark chuyên gia lớn và rubric đã calibration.
-
-## Assumptions
-
-- Các ADR này là baseline v1, không phải cam kết không đổi.
-- Mọi thay đổi phải cập nhật status, rationale và evaluation evidence.
-
-## Failure modes
-
-- Stack được thay đổi nhưng ADR không cập nhật.
-- ADR dùng ngôn ngữ tuyệt đối dù benchmark đã thay đổi.
-- “Production” được hiểu là cần microservices/Kubernetes dù chưa có trigger.
-
-## Acceptance criteria
-
-- Mọi quyết định lớn trong architecture có ADR tương ứng.
-- Mỗi ADR nêu context, decision, alternatives, trade-off và revisit trigger.
-- Khi benchmark thay đổi quyết định, ADR được cập nhật cùng report.
+**Revisit:** A domain-expert benchmark broad enough to calibrate additional metrics becomes available.
